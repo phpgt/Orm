@@ -1,0 +1,50 @@
+{
+	"name": "phpgt/orm",
+	"description": "Object relational mapper.",
+	"license": "MIT",
+	"require": {
+		"phpgt/sqlbuilder": "dev-master"
+	},
+	"require-dev": {
+		"phpstan/phpstan": "^1.10",
+		"phpunit/phpunit": "^10.1",
+		"phpmd/phpmd": "^2.13",
+		"squizlabs/php_codesniffer": "^3.7"
+	},
+
+	"autoload": {
+		"psr-4": {
+			"Gt\\Orm\\": "./src"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Gt\\Orm\\Test\\": "./test/phpunit"
+		}
+	},
+	"keywords": [
+		"orm",
+		"object relational mapper",
+		"database",
+		"entity",
+		"repository",
+		"repo",
+		"sql",
+		"nosql",
+		"mapping",
+		"pdo",
+		"crud",
+		"query",
+		"relational",
+		"data persistence",
+		"data mapper",
+		"migration",
+		"schema"
+	],
+	"funding": [
+		{
+			"type": "github",
+			"url": "https://github.com/sponsors/PhpGt"
+		}
+	]
+}
