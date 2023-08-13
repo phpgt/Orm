@@ -2,9 +2,9 @@
 namespace Gt\Orm\Test\Migration;
 
 use Gt\Orm\Migration\EntityDetector;
-use Gt\Orm\Test\TestProjectRoot\class\NestedNamespace\TestNestedClass;
+use Gt\Orm\Test\TestProjectRoot\class\NestedNamespace\OrderEntity;
 use Gt\Orm\Test\TestProjectRoot\class\NotAnEntity;
-use Gt\Orm\Test\TestProjectRoot\class\RootClass;
+use Gt\Orm\Test\TestProjectRoot\class\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class EntityDetectorTest extends TestCase {
@@ -20,8 +20,8 @@ class EntityDetectorTest extends TestCase {
 		$sut = new EntityDetector();
 		$detected = $sut->getEntityClassList($dir);
 		self::assertCount(2, $detected);
-		self::assertContains(TestNestedClass::class, $detected);
-		self::assertContains(RootClass::class, $detected);
+		self::assertContains(OrderEntity::class, $detected);
+		self::assertContains(PersonEntity::class, $detected);
 		self::assertNotContains(NotAnEntity::class, $detected);
 	}
 }
