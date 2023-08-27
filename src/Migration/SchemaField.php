@@ -18,9 +18,12 @@ class SchemaField {
 		return $this->type;
 	}
 
-
 	public function setNullable(bool $allowsNull):void {
 		$this->nullable = $allowsNull;
+	}
+
+	public function getNullable():bool {
+		return isset($this->nullable) && $this->nullable === true;
 	}
 
 	public function setDefaultValue(mixed $defaultValue):void {
