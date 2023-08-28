@@ -2,9 +2,9 @@
 namespace Gt\Orm\Test\Migration;
 
 use Gt\Orm\Migration\EntityDetector;
-use Gt\Orm\Test\TestProjectRoot\class\NestedNamespace\OrderEntity;
-use Gt\Orm\Test\TestProjectRoot\class\NotAnEntity;
-use Gt\Orm\Test\TestProjectRoot\class\PersonEntity;
+use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\NestedNamespace\OrderEntity;
+use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\NotAnEntity;
+use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class EntityDetectorTest extends TestCase {

@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Test\TestProjectRoot\class;
+namespace Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities;
 
 use DateTime;
 use Gt\Orm\Entity;
