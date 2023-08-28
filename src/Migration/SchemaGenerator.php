@@ -23,10 +23,6 @@ class SchemaGenerator {
 
 		foreach($promotedParams as $param) {
 			$paramName = $param->getName();
-			if(!isset($fieldList[$paramName])) {
-				$fieldList[$paramName] = new SchemaField($paramName);
-			}
-
 			$field = $fieldList[$paramName];
 
 			try {
