@@ -14,8 +14,8 @@ class SchemaField {
 		$this->type = $typeName;
 	}
 
-	public function getType():string {
-		return $this->type;
+	public function getType():?string {
+		return $this->type ?? null;
 	}
 
 	public function setNullable(bool $allowsNull):void {
@@ -24,6 +24,10 @@ class SchemaField {
 
 	public function getNullable():bool {
 		return isset($this->nullable) && $this->nullable === true;
+	}
+
+	public function hasDefaultValue():bool {
+		return isset($this->defaultValue);
 	}
 
 	public function setDefaultValue(mixed $defaultValue):void {
