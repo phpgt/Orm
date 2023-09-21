@@ -7,9 +7,13 @@ class SchemaTable {
 	private array $fieldList;
 
 	public function __construct(
-		public readonly string $name,
+		private readonly string $name,
 	) {
 		$this->fieldList = [];
+	}
+
+	public function getName():string {
+		return $this->name;
 	}
 
 	public function setPrimaryKey(SchemaField $field):void {

@@ -7,8 +7,12 @@ class SchemaField {
 	private mixed $defaultValue;
 
 	public function __construct(
-		public readonly string $name,
+		private readonly string $name,
 	) {}
+
+	public function getName():string {
+		return $this->name;
+	}
 
 	public function setType(mixed $typeName):void {
 		$this->type = $typeName;
