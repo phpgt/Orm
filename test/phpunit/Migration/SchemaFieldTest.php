@@ -8,7 +8,7 @@ use stdClass;
 class SchemaFieldTest extends TestCase {
 	public function testConstruct():void {
 		$sut = new SchemaField("test");
-		self::assertSame("test", $sut->name);
+		self::assertSame("test", $sut->getName());
 	}
 
 	public function testType_noTypeByDefault():void {

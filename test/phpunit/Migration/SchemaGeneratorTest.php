@@ -10,16 +10,16 @@ class SchemaGeneratorTest extends TestCase {
 	public function testGenerate():void {
 		$sut = new SchemaGenerator();
 		$schemaTable = $sut->generate(PersonEntity::class);
-		self::assertSame("PersonEntity", $schemaTable->name);
-		self::assertSame("id", $schemaTable->getPrimaryKey()->name);
+		self::assertSame("PersonEntity", $schemaTable->getName());
+		self::assertSame("id", $schemaTable->getPrimaryKey()->getName());
 		$schemaFields = $schemaTable->getFieldList();
 		self::assertCount(3, $schemaFields);
 
-		self::assertSame("id", $schemaFields[0]->name);
+		self::assertSame("id", $schemaFields[0]->getName());
 		self::assertSame("string", $schemaFields[0]->getType());
-		self::assertSame("name", $schemaFields[1]->name);
+		self::assertSame("name", $schemaFields[1]->getName());
 		self::assertSame("string", $schemaFields[1]->getType());
-		self::assertSame("createdAt", $schemaFields[2]->name);
+		self::assertSame("createdAt", $schemaFields[2]->getName());
 		self::assertSame(DateTime::class, $schemaFields[2]->getType());
 		self::assertInstanceOf(DateTime::class, $schemaFields[2]->getDefaultValue());
 	}
@@ -33,14 +33,14 @@ class SchemaGeneratorTest extends TestCase {
 			) {}
 		});
 
-		self::assertSame("id", $schemaTable->getPrimaryKey()->name);
+		self::assertSame("id", $schemaTable->getPrimaryKey()->getName());
 		self::assertSame("int", $schemaTable->getPrimaryKey()->getType());
 		$schemaFields = $schemaTable->getFieldList();
 		self::assertCount(2, $schemaFields);
 
-		self::assertSame("id", $schemaFields[0]->name);
+		self::assertSame("id", $schemaFields[0]->getName());
 		self::assertSame("int", $schemaFields[0]->getType());
-		self::assertSame("name", $schemaFields[1]->name);
+		self::assertSame("name", $schemaFields[1]->getName());
 		self::assertSame("string", $schemaFields[1]->getType());
 	}
 
@@ -70,7 +70,7 @@ class SchemaGeneratorTest extends TestCase {
 
 		$schemaFields = $schemaTable->getFieldList();
 		self::assertCount(3, $schemaFields);
-		self::assertSame("searchKey", $schemaFields[2]->name);
+		self::assertSame("searchKey", $schemaFields[2]->getName());
 		self::assertSame("TEST_KEY", $schemaFields[2]->getDefaultValue());
 	}
 }
