@@ -30,13 +30,13 @@ class SchemaFieldTest extends TestCase {
 
 	public function testNullable_notNullableByDefault():void {
 		$sut = new SchemaField("test");
-		self::assertFalse($sut->getNullable());
+		self::assertFalse($sut->isNullable());
 	}
 
 	public function testNullable():void {
 		$sut = new SchemaField("test");
 		$sut->setNullable(true);
-		self::assertTrue($sut->getNullable());
+		self::assertTrue($sut->isNullable());
 	}
 
 	public function testHasDefaultValue():void {

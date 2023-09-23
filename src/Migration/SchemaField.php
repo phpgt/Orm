@@ -5,6 +5,10 @@ class SchemaField {
 	private string $type;
 	private bool $nullable;
 	private mixed $defaultValue;
+	private bool $autoIncrement;
+	private string $foreignKeyReferenceTable;
+	private string $foreignKeyReferenceField;
+	private bool $unique;
 
 	public function __construct(
 		private readonly string $name,
@@ -26,8 +30,8 @@ class SchemaField {
 		$this->nullable = $allowsNull;
 	}
 
-	public function getNullable():bool {
-		return isset($this->nullable) && $this->nullable === true;
+	public function isNullable():bool {
+		return $this->nullable ?? false;
 	}
 
 	public function hasDefaultValue():bool {
@@ -42,4 +46,36 @@ class SchemaField {
 		return $this->defaultValue ?? null;
 	}
 
+	public function setAutoIncrement(bool $autoIncrement):void {
+		$this->autoIncrement = $autoIncrement;
+	}
+
+	public function isAutoIncrement():bool {
+		return $this->autoIncrement ?? false;
+	}
+
+	public function setForeignKeyReference(string $table, string $field):void {
+		$this->foreignKeyReferenceTable = $table;
+		$this->foreignKeyReferenceField = $field;
+	}
+
+	public function isForeignKey():bool {
+		return isset($this->foreignKeyReferenceTable);
+	}
+
+	public function getForeignKeyReferenceTable():string {
+		return $this->foreignKeyReferenceTable;
+	}
+
+	public function getForeignKeyReferenceField():string {
+		return $this->foreignKeyReferenceField;
+	}
+
+	public function setUnique(bool $unique):void {
+		$this->unique = $unique;
+	}
+
+	public function isUnique():bool {
+		return $this->unique ?? false;
+	}
 }

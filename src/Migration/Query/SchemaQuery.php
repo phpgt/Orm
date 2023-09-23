@@ -6,7 +6,8 @@ use Gt\Orm\Migration\SchemaTable;
 
 abstract class SchemaQuery {
 	protected $templateCreateStatement = "create table `{{tableName}}` ({{columnDefList}}\n)";
-	protected $templateColumnDef = "`{{columnName}}` {{columnType}} {{columnNullDefault}} {{columnConstraint}}";
+	protected $templateColumnDef = "`{{columnName}}` {{columnType}} {{columnConstraint}}";
+	protected $templateColumnConstraint = "{{nullable}} {{default}} {{primaryKey}} {{unique}} {{foreignKey}}";
 
 	public function __construct(
 		protected SchemaTable $schemaTable
@@ -52,48 +53,86 @@ abstract class SchemaQuery {
 				$this->type($field->getType()),
 			);
 
-			$nullDefault = "";
-			if($field->getNullable()) {
-				$nullDefault .= "null";
-			}
-			else {
-				$nullDefault = "not null";
-			}
-
-			if($field->hasDefaultValue()) {
-				$nullDefault .= " default "
-					. $this->quote($field->getDefaultValue());
-			}
-
-			$columnSql = $this->inject(
-				$columnSql,
-				"columnNullDefault",
-				$nullDefault,
-			);
-
 // TODO: Firstly, map all of the allowed constraints here.
 // IMPORTANT: A null/not null with default IS actually a constraint... so it should probably just go here instead of having its own named part called columnNullDefault
 // Each constraint can be checked and concatenated individually.
 // ... then, check syntax for MySQL and SQLite individually and override things as necessary!
 // https://www.sqlite.org/lang_createtable.html - see column-def -> column-constraint
-			$constraint = "";
-			if($field->isPrimaryKey()) {
-
-			}
-			if($field->isForeignKey()) {
-
-			}
 
 			$columnSql = $this->inject(
 				$columnSql,
 				"columnConstraint",
-				$constraint,
+				$this->generateColumnConstraint($field),
 			);
 
-			$sql .= $columnSql;
+			$sql .= $this->tidyWhitespace($columnSql);
 		}
 
-		return $sql;
+		return $this->tidyWhitespace($sql);
+	}
+
+	public function generateColumnConstraint(SchemaField $field):string {
+		$constraintSql = $this->templateColumnConstraint;
+
+		$nullableInjection = $field->isNullable() ? "null" : "not null";
+		$constraintSql = $this->inject(
+			$constraintSql,
+			"nullable",
+			$nullableInjection,
+		);
+
+		$defaultInjection = $field->hasDefaultValue()
+			? "default " . $field->getDefaultValue()
+			: "";
+		$constraintSql = $this->inject(
+			$constraintSql,
+			"default",
+			$defaultInjection,
+		);
+
+		$uniqueInjection = "";
+		if($field->isUnique()) {
+			$uniqueInjection = "unique";
+		}
+		$constraintSql = $this->inject(
+			$constraintSql,
+			"unique",
+			$uniqueInjection,
+		);
+
+		$primaryKeyInjection = "";
+		if($this->schemaTable->getPrimaryKey() === $field) {
+			$autoincrement = $field->isAutoIncrement()
+				? "autoincrement"
+				: "";
+
+			$primaryKeyInjection = "primary key$autoincrement";
+		}
+		$constraintSql = $this->inject(
+			$constraintSql,
+			"primaryKey",
+			$primaryKeyInjection
+		);
+
+		$foreignKey = "";
+		if($field->isForeignKey()) {
+// TODO: Handle	"on delete", "on duplicate"
+			$deleteDuplicateBehaviour = "";
+
+			$foreignKey = "references `"
+				. $field->getForeignKeyReferenceTable()
+				. "` (`"
+				. $field->getForeignKeyReferenceField()
+				. "`) "
+				. $deleteDuplicateBehaviour;
+		}
+		$constraintSql = $this->inject(
+			$constraintSql,
+			"foreignKey",
+			$foreignKey,
+		);
+
+		return $constraintSql;
 	}
 
 	protected function quote(bool|int|float|string $value):string {
@@ -105,11 +144,21 @@ abstract class SchemaQuery {
 		return $value;
 	}
 
-	protected function type(string $type):string {
-		return $type;
-	}
+	abstract protected function type(string $type):string;
 
 	private function inject(string $sql, string $key, string $value):string {
 		return str_replace("{{" . $key . "}}", $value, $sql);
+	}
+
+	private function tidyWhitespace(string $sql):string {
+		while(str_contains($sql, "  ")) {
+			$sql = str_replace("  ", " ", $sql);
+		}
+
+		while(str_contains($sql, " ,")) {
+			$sql = str_replace(" ,", ",", $sql);
+		}
+
+		return $sql;
 	}
 }

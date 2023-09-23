@@ -12,17 +12,19 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		$field1 = self::createMock(SchemaField::class);
 		$field1->method("getName")->willReturn("id");
 		$field1->method("getType")->willReturn("int");
-		$field1->method("getNullable")->willReturn(false);
+		$field1->method("isNullable")->willReturn(false);
 		$field2 = self::createMock(SchemaField::class);
 		$field2->method("getName")->willReturn("name");
 		$field2->method("getType")->willReturn("string");
-		$field1->method("getNullable")->willReturn(true);
+		$field2->method("isNullable")->willReturn(true);
 
 		$fieldList = [$field1, $field2];
 
 		$schemaTable = self::createMock(SchemaTable::class);
 		$schemaTable->method("getName")
 			->willReturn("TestTable");
+		$schemaTable->method("getPrimaryKey")
+			->willReturn($field1);
 
 		$schemaTable->method("getFieldList")
 			->willReturn($fieldList);
@@ -30,7 +32,7 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		$sut = new SchemaQuerySQLite($schemaTable);
 
 		self::assertSameSQL(
-			"create table `TestTable` ( `id` int not null constraint `TestTable_pk` primary key, `name` text null )",
+			"create table `TestTable` ( `id` int not null primary key, `name` text null )",
 			$sut->generateSql(),
 		);
 	}

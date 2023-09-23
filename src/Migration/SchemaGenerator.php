@@ -40,6 +40,10 @@ class SchemaGenerator {
 		return $table;
 	}
 
+	public function getDialect():SQLDialect {
+		return $this->dialect;
+	}
+
 	private function getTableName(string $className):string {
 		$classNameOffset = strrpos($className, "\\");
 
