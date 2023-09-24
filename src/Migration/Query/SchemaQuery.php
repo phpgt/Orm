@@ -5,9 +5,9 @@ use Gt\Orm\Migration\SchemaField;
 use Gt\Orm\Migration\SchemaTable;
 
 abstract class SchemaQuery {
-	protected $templateCreateStatement = "create table `{{tableName}}` ({{columnDefList}}\n)";
-	protected $templateColumnDef = "`{{columnName}}` {{columnType}} {{columnConstraint}}";
-	protected $templateColumnConstraint = "{{nullable}} {{default}} {{primaryKey}} {{unique}} {{foreignKey}}";
+	protected string $templateCreateStatement = "create table `{{tableName}}` ({{columnDefList}}\n)";
+	protected string $templateColumnDef = "`{{columnName}}` {{columnType}} {{columnConstraint}}";
+	protected string $templateColumnConstraint = "{{nullable}} {{default}} {{primaryKey}} {{unique}} {{foreignKey}}";
 
 	public function __construct(
 		protected SchemaTable $schemaTable
