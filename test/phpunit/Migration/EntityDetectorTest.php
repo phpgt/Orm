@@ -2,9 +2,9 @@
 namespace Gt\Orm\Test\Migration;
 
 use Gt\Orm\Migration\EntityDetector;
-use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\NestedNamespace\OrderEntity;
-use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\NotAnEntity;
-use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\PersonEntity;
+use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NestedNamespace\OrderEntity;
+use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NotAnEntity;
+use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class EntityDetectorTest extends TestCase {
@@ -16,7 +16,7 @@ class EntityDetectorTest extends TestCase {
 	}
 
 	public function testGetEntityClassList():void {
-		$dir = "test/phpunit/TestProject/01-EntityDetectorTest";
+		$dir = "test/phpunit/TestProject/EntityDetectorTest";
 		$sut = new EntityDetector();
 		$detected = $sut->getEntityClassList($dir);
 		self::assertCount(2, $detected);

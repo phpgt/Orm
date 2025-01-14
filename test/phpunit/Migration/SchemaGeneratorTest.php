@@ -3,7 +3,7 @@ namespace Gt\Orm\Test\Migration;
 
 use DateTime;
 use Gt\Orm\Migration\SchemaGenerator;
-use Gt\Orm\Test\TestProjectRoot\SimpleEntitiesAndNonEntities\PersonEntity;
+use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class SchemaGeneratorTest extends TestCase {
