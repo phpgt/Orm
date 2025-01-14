@@ -16,7 +16,7 @@ class EntityDetectorTest extends TestCase {
 	}
 
 	public function testGetEntityClassList():void {
-		$dir = "test/phpunit/01-EntityDetectorTest";
+		$dir = "test/phpunit/TestProject/01-EntityDetectorTest";
 		$sut = new EntityDetector();
 		$detected = $sut->getEntityClassList($dir);
 		self::assertCount(2, $detected);
