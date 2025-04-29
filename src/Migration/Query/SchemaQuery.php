@@ -9,6 +9,8 @@ abstract class SchemaQuery {
 	protected string $templateColumnDef = "`{{columnName}}` {{columnType}} {{columnConstraint}}";
 	protected string $templateColumnConstraint = "{{nullable}} {{default}} {{primaryKey}} {{unique}} {{foreignKey}}";
 
+	protected string $columnDefPartAutoIncrement = "autoincrement";
+
 	public function __construct(
 		protected SchemaTable $schemaTable
 	) {}
@@ -103,7 +105,7 @@ abstract class SchemaQuery {
 		$primaryKeyInjection = "";
 		if($this->schemaTable->getPrimaryKey() === $field) {
 			$autoincrement = $field->isAutoIncrement()
-				? "autoincrement"
+				? " " . $this->columnDefPartAutoIncrement
 				: "";
 
 			$primaryKeyInjection = "primary key$autoincrement";

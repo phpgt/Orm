@@ -1,6 +1,7 @@
 <?php
 namespace Gt\Orm\Test\Migration\Query;
 
+use Gt\Orm\Migration\Query\SchemaQueryMySQL;
 use Gt\Orm\Migration\Query\SchemaQuerySQLite;
 use Gt\Orm\Migration\SchemaField;
 use Gt\Orm\Migration\SchemaTable;
@@ -49,6 +50,7 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		$field1->method("getName")->willReturn("id");
 		$field1->method("getType")->willReturn("int");
 		$field1->method("isNullable")->willReturn(false);
+		$field1->method("isAutoIncrement")->willReturn(true);
 		$field2 = self::createMock(SchemaField::class);
 		$field2->method("getName")->willReturn("name");
 		$field2->method("getType")->willReturn("string");
@@ -65,18 +67,31 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		$schemaTable->method("getFieldList")
 			->willReturn($fieldList);
 
-		$sut = new SchemaQuerySQLite($schemaTable);
+		$sutSqlite = new SchemaQuerySQLite($schemaTable);
+		$sutMySql = new SchemaQueryMySQL($schemaTable);
 
-		$expected = <<<SQL
+		$expectedSqlite = <<<SQL
 		create table `TestTable` (
-			`id` int not null primary key,
+			`id` int not null primary key autoincrement,
 			`name` text null
 		)
 		SQL;
 
 		self::assertSameSQL(
-			$expected,
-			$sut->generateSql(),
+			$expectedSqlite,
+			$sutSqlite->generateSql(),
+		);
+
+		$expectedMySql = <<<SQL
+		create table `TestTable` (
+			`id` int not null primary key auto_increment,
+			`name` text null
+		)
+		SQL;
+
+		self::assertSameSQL(
+			$expectedMySql,
+			$sutMySql->generateSql(),
 		);
 	}
 }

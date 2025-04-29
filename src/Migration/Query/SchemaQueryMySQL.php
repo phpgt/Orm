@@ -4,8 +4,12 @@ namespace Gt\Orm\Migration\Query;
 use Gt\Orm\Migration\Query\SchemaQuery;
 
 class SchemaQueryMySQL extends SchemaQuery {
+	protected string $columnDefPartAutoIncrement = "auto_increment";
+
 	protected function type(string $type):string {
-		// TODO: Implement type() method.
-		return $type;
+		return match($type) {
+			"string" => "text",
+			default => $type,
+		};
 	}
 }
