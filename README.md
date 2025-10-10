@@ -55,3 +55,9 @@ One big question I have yet to prototype:
 I think the way this should work is foreign keys are never done using joins - instead, separate queries should always be used. That way, the query that loads the referenced table will not need to be executed until the developer requests that field.
 
 This could be achieved by the Orm generating an anonymous class that extends the referenced class, but takes on a trait to allow `__get` to execute the query... something like that, but I expect weird reflection will be required to make this transparent to the developer. 
+
+# Proudly sponsored by
+
+[JetBrains Open Source sponsorship program](https://www.jetbrains.com/community/opensource/)
+
+[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://www.jetbrains.com/community/opensource/)
