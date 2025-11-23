@@ -38,7 +38,7 @@ class Repository {
 	public function fetch(
 		string $className,
 		int|string|Condition... $match,
-	):?object {
+	) {
 		$parameters = [];
 
 		$primaryKey = $this->getPrimaryKey($className);
@@ -118,7 +118,7 @@ class Repository {
 	 * @param null|object $instance An existing object reference to hydrate
 	 * @return null|T
 	 */
-	protected function rowToEntity(Row $row, string $className, ?object $instance = null):?object {
+	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
 		$refClass = new ReflectionClass($className);
 		$refPropertyArray = $refClass->getProperties(
 			ReflectionProperty::IS_PUBLIC,
@@ -151,7 +151,6 @@ class Repository {
 					$instance,
 					$refClass,
 					$propertyName,
-					$row,
 				);
 			}
 		}
@@ -185,7 +184,6 @@ class Repository {
 		object $instance,
 		ReflectionClass $refClass,
 		string $propertyName,
-		Row $row,
 	):void {
 		$refProperty = $refClass->getProperty($propertyName);
 		$refType = $refProperty->getType();
@@ -210,11 +208,4 @@ class Repository {
 
 		$refProperty->setValue($instance, $lazyProperty);
 	}
-
-	private function initGhost(...$args):void {
-		var_dump($args);
-		sleep(5);
-		var_dump($args);
-	}
-
 }
