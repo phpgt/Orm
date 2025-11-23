@@ -4,7 +4,7 @@ namespace Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntitie
 use DateTime;
 use Gt\Orm\Entity;
 
-readonly class PersonEntity extends Entity {
+readonly class PersonEntity implements Entity {
 	public function __construct(
 		public string $id,
 		public string $name,

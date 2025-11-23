@@ -5,7 +5,7 @@ use DateTime;
 use Gt\Orm\Entity;
 use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 
-readonly class OrderEntity extends Entity {
+readonly class OrderEntity implements Entity {
 	public function __construct(
 		public string $id,
 		public PersonEntity $person,

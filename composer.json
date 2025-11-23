@@ -3,7 +3,8 @@
 	"description": "Object relational mapper.",
 	"license": "MIT",
 	"require": {
-		"phpgt/sqlbuilder": "dev-master"
+		"phpgt/sqlbuilder": "dev-master",
+		"phpgt/database": "dev-master"
 	},
 	"require-dev": {
 		"phpstan/phpstan": "^1.10",
