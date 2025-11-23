@@ -104,7 +104,9 @@ class Repository {
 				}
 			}
 
-			var_Dump($type);
+			$referencedPrimaryKey = $this->getPrimaryKey($type);
+			$referencedTableName = $this->getTableName($type);
+			array_push($columnList, "{$name}_{$referencedTableName}_$referencedPrimaryKey");
 		}
 
 		return $columnList;
@@ -113,14 +115,14 @@ class Repository {
 	/**
 	 * @template T
 	 * @param class-string<T> $className
+	 * @param null|object $instance An existing object reference to hydrate
 	 * @return null|T
 	 */
-	protected function rowToEntity(Row $row, string $className):?object {
+	protected function rowToEntity(Row $row, string $className, ?object $instance = null):?object {
 		$refClass = new ReflectionClass($className);
 		$refPropertyArray = $refClass->getProperties(
 			ReflectionProperty::IS_PUBLIC,
 		);
-
 
 		$propertyValues = [];
 		foreach($refPropertyArray as $refProperty) {
@@ -132,7 +134,7 @@ class Repository {
 			$propertyValues[$propertyName] = $row->get($propertyName);
 		}
 
-		$instance = $refClass->newInstanceWithoutConstructor();
+		$instance = $instance ?? $refClass->newInstanceWithoutConstructor();
 
 		foreach($refPropertyArray as $refProperty) {
 			$propertyName = $refProperty->getName();
@@ -149,6 +151,7 @@ class Repository {
 					$instance,
 					$refClass,
 					$propertyName,
+					$row,
 				);
 			}
 		}
@@ -162,27 +165,50 @@ class Repository {
 		string $propertyName,
 		string $value,
 	):void {
-
-		if($refClass->hasProperty($propertyName)) {
-			$refProperty = $refClass->getProperty($propertyName);
-			$refType = $refProperty->getType();
-			if(!$refType->isBuiltin()) {
-				$typeName = $refType->getName();
-
-				if(is_subclass_of($typeName, DateTimeInterface::class) || $typeName === DateTimeInterface::class) {
-					$value = new $typeName($value);
-				}
-			}
-			$refProperty->setValue($instance, $value);
+		if(!$refClass->hasProperty($propertyName)) {
+			return;
 		}
+
+		$refProperty = $refClass->getProperty($propertyName);
+		$refType = $refProperty->getType();
+		if(!$refType->isBuiltin()) {
+			$typeName = $refType->getName();
+
+			if(is_subclass_of($typeName, DateTimeInterface::class) || $typeName === DateTimeInterface::class) {
+				$value = new $typeName($value);
+			}
+		}
+		$refProperty->setValue($instance, $value);
 	}
 
 	private function handleLazyInstanceProperty(
 		object $instance,
 		ReflectionClass $refClass,
 		string $propertyName,
+		Row $row,
 	):void {
+		$refProperty = $refClass->getProperty($propertyName);
+		$refType = $refProperty->getType();
+		$typeName = $refType->getName();
 
+		$refClassForeign = new ReflectionClass($typeName);
+		$lazyProperty = $refClassForeign->newLazyGhost(function(object $ghost)use($typeName, $propertyName) {
+			$referencedTableName = $this->getTableName($typeName);
+			$referencedPrimaryKey = $this->getPrimaryKey($typeName);
+			$referencedPrimaryKeyValue = "{$propertyName}_{$referencedTableName}_{$referencedPrimaryKey}";
+
+			$builder = new SelectBuilder();
+			$builder->from($this->getTableName($typeName))
+				->select(...$this->getColumnList($typeName))
+				->where("id = :id");
+			$referencedResultSet = $this->database->executeSql($builder, [
+				"id" => $referencedPrimaryKeyValue,
+			]);
+			$referencedRow = $referencedResultSet->fetch();
+			$this->rowToEntity($referencedRow, $typeName, $ghost);
+		});
+
+		$refProperty->setValue($instance, $lazyProperty);
 	}
 
 	private function initGhost(...$args):void {

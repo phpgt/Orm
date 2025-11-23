@@ -8,7 +8,6 @@ readonly class Teacher implements Entity {
 		public string $id,
 		public string $firstName,
 		public string $lastName,
-		public Department $department,
-		public CourseList $coursesTaught,
+		public CourseList $coursesAssigned,
 	) {}
 }
