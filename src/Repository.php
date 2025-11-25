@@ -13,6 +13,8 @@ use ReflectionProperty;
 use Stringable;
 
 class Repository {
+	private $foreignKeyMap = [];
+
 	public function __construct(
 		protected Database $database,
 	) {
@@ -64,8 +66,8 @@ class Repository {
 		return (new ReflectionClass($entityClassName))->getShortName();
 	}
 
-	/** @param class-string $entity */
-	private function getPrimaryKey(string $entity):string {
+	/** @param object|class-string $entity */
+	private function getPrimaryKey(object|string $entity):string {
 // TODO: How do we detect primary keys that are not called "id"?
 		return "id";
 	}
@@ -106,7 +108,7 @@ class Repository {
 
 			$referencedPrimaryKey = $this->getPrimaryKey($type);
 			$referencedTableName = $this->getTableName($type);
-			array_push($columnList, "{$name}_{$referencedTableName}_$referencedPrimaryKey");
+			array_push($columnList, $this->buildForeignKey($name, $referencedTableName, $referencedPrimaryKey));
 		}
 
 		return $columnList;
@@ -124,33 +126,58 @@ class Repository {
 			ReflectionProperty::IS_PUBLIC,
 		);
 
-		$propertyValues = [];
+		$rowValues = [];
 		foreach($refPropertyArray as $refProperty) {
+			$refTypeName = $refProperty->getType()->getName();
 			$propertyName = $refProperty->getName();
+			if(class_exists($refTypeName)) {
+				$foreignTableName = $this->getTableName($refTypeName);
+				$foreignPrimaryKey = $this->getPrimaryKey($refTypeName);
+
+				if(is_subclass_of($refTypeName, \Traversable::class)) {
+					// TODO: Look up the junction table for this joined row.
+					continue;
+					$propertyName = $this->buildJunctionKey($propertyName, $foreignTableName, $foreignPrimaryKey);
+				}
+				else {
+					$propertyName = $this->buildForeignKey($propertyName, $foreignTableName, $foreignPrimaryKey);
+				}
+			}
 
 			if(!$row->contains($propertyName)) {
 				continue;
 			}
-			$propertyValues[$propertyName] = $row->get($propertyName);
+			$rowValues[$propertyName] = $row->get($propertyName);
 		}
 
 		$instance = $instance ?? $refClass->newInstanceWithoutConstructor();
 
 		foreach($refPropertyArray as $refProperty) {
 			$propertyName = $refProperty->getName();
-			if(isset($propertyValues[$propertyName])) {
+			if(isset($rowValues[$propertyName])) {
 				$this->setInstanceProperty(
 					$instance,
 					$refClass,
-					$propertyName,
-					$propertyValues[$propertyName],
+					$refProperty,
+					$rowValues[$propertyName],
 				);
 			}
 			else {
+				$foreignPropertyType = $refProperty->getType()->getName();
+				$foreignTableName = $this->getTableName($foreignPropertyType);
+				$foreignPrimaryKey = $this->getPrimaryKey($foreignPropertyType);
+				$columnName = $this->buildForeignKey(
+					$propertyName,
+					$foreignTableName,
+					$foreignPrimaryKey,
+				);
+				$foreignPrimaryKeyValue = $rowValues[$columnName];
+
 				$this->handleLazyInstanceProperty(
 					$instance,
 					$refClass,
-					$propertyName,
+					$refProperty,
+					$foreignPrimaryKeyValue,
 				);
 			}
 		}
@@ -161,14 +188,13 @@ class Repository {
 	private function setInstanceProperty(
 		object $instance,
 		ReflectionClass $refClass,
-		string $propertyName,
+		ReflectionProperty $refProperty,
 		string $value,
 	):void {
-		if(!$refClass->hasProperty($propertyName)) {
+		if(!$refClass->hasProperty($refProperty->getName())) {
 			return;
 		}
 
-		$refProperty = $refClass->getProperty($propertyName);
 		$refType = $refProperty->getType();
 		if(!$refType->isBuiltin()) {
 			$typeName = $refType->getName();
@@ -183,29 +209,61 @@ class Repository {
 	private function handleLazyInstanceProperty(
 		object $instance,
 		ReflectionClass $refClass,
-		string $propertyName,
+		ReflectionProperty $refProperty,
+		null|int|string $foreignPrimaryKeyValue,
 	):void {
-		$refProperty = $refClass->getProperty($propertyName);
 		$refType = $refProperty->getType();
 		$typeName = $refType->getName();
 
 		$refClassForeign = new ReflectionClass($typeName);
-		$lazyProperty = $refClassForeign->newLazyGhost(function(object $ghost)use($typeName, $propertyName) {
-			$referencedTableName = $this->getTableName($typeName);
-			$referencedPrimaryKey = $this->getPrimaryKey($typeName);
-			$referencedPrimaryKeyValue = "{$propertyName}_{$referencedTableName}_{$referencedPrimaryKey}";
+		$lazyProperty = $refClassForeign->newLazyGhost(function(object $ghost)use($instance, $typeName, $refClass, $refProperty, $foreignPrimaryKeyValue) {
+			if(is_null($foreignPrimaryKeyValue)) {
+// Leave the property unset. This will throw an exception if it's accessed before initialisation.
+				return;
+			}
+			$referencedPrimaryKey = $this->getPrimaryKey($instance);
 
 			$builder = new SelectBuilder();
 			$builder->from($this->getTableName($typeName))
 				->select(...$this->getColumnList($typeName))
-				->where("id = :id");
+				->where("$referencedPrimaryKey = :id");
+			$builder = (string)$builder;
 			$referencedResultSet = $this->database->executeSql($builder, [
-				"id" => $referencedPrimaryKeyValue,
+				"id" => $foreignPrimaryKeyValue,
 			]);
 			$referencedRow = $referencedResultSet->fetch();
-			$this->rowToEntity($referencedRow, $typeName, $ghost);
+			$foreignEntity = $this->rowToEntity($referencedRow, $typeName, $ghost);
+
+			$refProperty->setValue($instance, $foreignEntity);
 		});
 
 		$refProperty->setValue($instance, $lazyProperty);
 	}
+
+	private function buildForeignKey(
+		string $propertyName,
+		string $foreignTableName,
+		string $foreignPrimaryKey,
+	):string {
+		return implode("_", [
+			$propertyName,
+			$foreignTableName,
+			$foreignPrimaryKey,
+		]);
+	}
+
+	private function buildJunctionKey(
+		string $propertyName,
+		string $foreignTableName,
+		string $foreignPrimaryKey,
+	):string {
+		return implode("_", [
+			$propertyName,
+			"junction",
+			$foreignTableName,
+			$foreignPrimaryKey,
+		]);
+	}
+
+
 }

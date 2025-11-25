@@ -131,4 +131,91 @@ class RepositoryTest extends TestCase {
 		self::assertSame("John", $department->headOfDepartment->firstName);
 		self::assertSame("Johnson", $department->headOfDepartment->lastName);
 	}
+
+	/**
+	 * Following on from the tests above, this test loads the lazy property
+	 * of headOfDepartment (Teacher class), and then loads the lazy property
+	 * coursesTaught on the Teacher.
+	 *
+	 * Not only is this test performing a nested lazy load, but the
+	 * coursesTaught property is an array, and will need to produce a
+	 * query via a junction table.
+	 *
+	 * TODO: After a lazy query has been executed, cache the entities by ID.
+	 */
+	public function testFetch_lazyPropertyNested():void {
+		$rowDepartment = self::createMock(Row::class);
+		$rowDepartment->method("contains")
+			->willReturnMap([
+				["id", true],
+				["name", true],
+				["headOfDepartment_Teacher_id", true],
+				["headOfDepartment", false],
+			]);
+		$rowDepartment->method("get")
+			->willReturnMap([
+				["id", "DEPARTMENT_COMPUTING"],
+				["name", "Computing"],
+				["headOfDepartment_Teacher_id", "TEACHER_JOHN"],
+			]);
+
+		$rowTeacher = self::createMock(Row::class);
+		$rowTeacher->method("contains")
+			->willReturnMap([
+				["id", true],
+				["firstName", true],
+				["lastName", true],
+				["coursesAssigned_TODO_JUNCTION_TABLE", true],
+				["coursesAssigned", false],
+			]);
+		$rowTeacher->method("get")
+			->willReturnMap([
+				["id", "TEACHER_JOHN"],
+				["firstName", "John"],
+				["lastName", "Johnson"],
+			]);
+
+		$rowCourse1 = self::createMock(Row::class);
+		$rowCourse1->method("get")->with("id")->willReturn("COURSE_FIRST");
+		$rowCourse2 = self::createMock(Row::class);
+		$rowCourse2->method("get")->with("id")->willReturn("COURSE_SECOND");
+		$rowCourse3 = self::createMock(Row::class);
+		$rowCourse3->method("get")->with("id")->willReturn("COURSE_THIRD");
+
+		$resultSetDepartment = self::createMock(ResultSet::class);
+		$resultSetDepartment->expects(self::once())
+			->method("fetch")
+			->willReturn($rowDepartment);
+
+		$resultSetTeacher = self::createMock(ResultSet::class);
+		$resultSetTeacher->expects(self::once())
+			->method("fetch")
+			->willReturn($rowTeacher);
+
+		$resultSetCourse = self::createMock(ResultSet::class);
+		$resultSetCourse
+			->method("fetch")
+			->willReturnOnConsecutiveCalls(
+				$rowCourse1,
+				$rowCourse2,
+				$rowCourse3,
+			);
+
+		$database = self::createMock(Database::class);
+		$database->expects(self::exactly(3))
+			->method("executeSql")
+			->willReturnOnConsecutiveCalls(
+				$resultSetDepartment,
+				$resultSetTeacher,
+				$resultSetCourse,
+			);
+
+		$sut = new UniversityRepository($database);
+		$department = $sut->fetch(Department::class, 12345);
+		self::assertSame("DEPARTMENT_COMPUTING", $department->id);
+		self::assertCount(3, $department->headOfDepartment->coursesAssigned);
+		self::assertSame("COURSE_FIRST", $department->headOfDepartment->coursesAssigned[0]->id);
+		self::assertSame("COURSE_SECOND", $department->headOfDepartment->coursesAssigned[1]->id);
+		self::assertSame("COURSE_THIRD", $department->headOfDepartment->coursesAssigned[2]->id);
+	}
 }
