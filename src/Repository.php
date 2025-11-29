@@ -13,8 +13,6 @@ use ReflectionProperty;
 use Stringable;
 
 class Repository {
-	private $foreignKeyMap = [];
-
 	public function __construct(
 		protected Database $database,
 	) {
@@ -27,13 +25,13 @@ class Repository {
 	 * @param class-string<T> $className The class name of the class
 	 * @param int|string $match $match can take variable arguments:
 	 * single int|string
-	 * 	treated as the primary key (equivalent to getById)
+	 *     treated as the primary key (equivalent to getById)
 	 * string, int|string
-	 * 	first argument is the field name,
-	 * 	second argument is the value/comparison to match
+	 *     first argument is the field name,
+	 *     second argument is the value/comparison to match
 	 * Condition[]
-	 * 	used to build the where/join clauses, and/or handled
-	 * 	by the Condition implementation
+	 *     used to build the where/join clauses, and/or handled
+	 *     by the Condition implementation
 	 *
 	 * @return null|T
 	 */
@@ -68,7 +66,7 @@ class Repository {
 
 	/** @param object|class-string $entity */
 	private function getPrimaryKey(object|string $entity):string {
-// TODO: How do we detect primary keys that are not called "id"?
+		// TODO: How do we detect primary keys that are not called "id"?
 		return "id";
 	}
 
@@ -122,6 +120,13 @@ class Repository {
 	 */
 	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
 		$refClass = new ReflectionClass($className);
+
+		// Create an instance without constructor if none provided
+		// This allows setting readonly properties
+		if ($instance === null) {
+			$instance = $refClass->newInstanceWithoutConstructor();
+		}
+
 		$refPropertyArray = $refClass->getProperties(
 			ReflectionProperty::IS_PUBLIC,
 		);
@@ -150,20 +155,22 @@ class Repository {
 			$rowValues[$propertyName] = $row->get($propertyName);
 		}
 
-		$instance = $instance ?? $refClass->newInstanceWithoutConstructor();
-
 		foreach($refPropertyArray as $refProperty) {
 			$propertyName = $refProperty->getName();
 			if(isset($rowValues[$propertyName])) {
 				$this->setInstanceProperty(
 					$instance,
-					$refClass,
 					$refProperty,
 					$rowValues[$propertyName],
 				);
 			}
 			else {
 				$foreignPropertyType = $refProperty->getType()->getName();
+				// Skip if not a class type (e.g., string, int, etc.)
+				if (!class_exists($foreignPropertyType)) {
+					continue;
+				}
+
 				$foreignTableName = $this->getTableName($foreignPropertyType);
 				$foreignPrimaryKey = $this->getPrimaryKey($foreignPropertyType);
 				$columnName = $this->buildForeignKey(
@@ -171,12 +178,16 @@ class Repository {
 					$foreignTableName,
 					$foreignPrimaryKey,
 				);
-				$foreignPrimaryKeyValue = $rowValues[$columnName];
 
+				if (!isset($rowValues[$columnName])) {
+					continue;
+				}
+
+				$foreignPrimaryKeyValue = $rowValues[$columnName];
 				$this->handleLazyInstanceProperty(
 					$instance,
-					$refClass,
 					$refProperty,
+					$foreignPropertyType,
 					$foreignPrimaryKeyValue,
 				);
 			}
@@ -187,14 +198,9 @@ class Repository {
 
 	private function setInstanceProperty(
 		object $instance,
-		ReflectionClass $refClass,
 		ReflectionProperty $refProperty,
 		string $value,
 	):void {
-		if(!$refClass->hasProperty($refProperty->getName())) {
-			return;
-		}
-
 		$refType = $refProperty->getType();
 		if(!$refType->isBuiltin()) {
 			$typeName = $refType->getName();
@@ -203,41 +209,52 @@ class Repository {
 				$value = new $typeName($value);
 			}
 		}
+
+		// Use reflection directly to set the value regardless of readonly status
 		$refProperty->setValue($instance, $value);
 	}
 
 	private function handleLazyInstanceProperty(
 		object $instance,
-		ReflectionClass $refClass,
 		ReflectionProperty $refProperty,
+		string $typeName,
 		null|int|string $foreignPrimaryKeyValue,
 	):void {
-		$refType = $refProperty->getType();
-		$typeName = $refType->getName();
+		if(is_null($foreignPrimaryKeyValue)) {
+			// Leave the property unset
+			return;
+		}
 
 		$refClassForeign = new ReflectionClass($typeName);
-		$lazyProperty = $refClassForeign->newLazyGhost(function(object $ghost)use($instance, $typeName, $refClass, $refProperty, $foreignPrimaryKeyValue) {
-			if(is_null($foreignPrimaryKeyValue)) {
-// Leave the property unset. This will throw an exception if it's accessed before initialisation.
-				return;
+
+		// Create the lazy ghost with a callback that will load the entity when accessed
+		$lazyGhost = $refClassForeign->newLazyGhost(
+			function(object $ghost) use ($refClassForeign, $typeName, $foreignPrimaryKeyValue) {
+				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
+				foreach($refClassForeign->getProperties(ReflectionProperty::IS_PUBLIC) as $refProperty) {
+					if($refProperty->isLazy($referencedEntity)) {
+						// Lazy property
+						die("LAZY!");
+					}
+					else {
+						$value = $refProperty->getValue($referencedEntity);
+					}
+					$refProperty->setValue($ghost, $value);
+				}
+//				$referencedResultSet = $this->database->executeSql($builder, [
+//					"id" => $foreignPrimaryKeyValue,
+//				]);
+//				$referencedRow = $referencedResultSet->fetch();
+
+				// Hydrate the ghost object directly
+//				if ($referencedRow) {
+//					$this->rowToEntity($referencedRow, $typeName, $ghost);
+//				}
 			}
-			$referencedPrimaryKey = $this->getPrimaryKey($instance);
+		);
 
-			$builder = new SelectBuilder();
-			$builder->from($this->getTableName($typeName))
-				->select(...$this->getColumnList($typeName))
-				->where("$referencedPrimaryKey = :id");
-			$builder = (string)$builder;
-			$referencedResultSet = $this->database->executeSql($builder, [
-				"id" => $foreignPrimaryKeyValue,
-			]);
-			$referencedRow = $referencedResultSet->fetch();
-			$foreignEntity = $this->rowToEntity($referencedRow, $typeName, $ghost);
-
-			$refProperty->setValue($instance, $foreignEntity);
-		});
-
-		$refProperty->setValue($instance, $lazyProperty);
+		// Set the ghost object as the property value
+		$refProperty->setValue($instance, $lazyGhost);
 	}
 
 	private function buildForeignKey(
@@ -264,6 +281,4 @@ class Repository {
 			$foreignPrimaryKey,
 		]);
 	}
-
-
 }

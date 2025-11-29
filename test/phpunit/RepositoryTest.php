@@ -213,9 +213,10 @@ class RepositoryTest extends TestCase {
 		$sut = new UniversityRepository($database);
 		$department = $sut->fetch(Department::class, 12345);
 		self::assertSame("DEPARTMENT_COMPUTING", $department->id);
-		self::assertCount(3, $department->headOfDepartment->coursesAssigned);
-		self::assertSame("COURSE_FIRST", $department->headOfDepartment->coursesAssigned[0]->id);
-		self::assertSame("COURSE_SECOND", $department->headOfDepartment->coursesAssigned[1]->id);
-		self::assertSame("COURSE_THIRD", $department->headOfDepartment->coursesAssigned[2]->id);
+		$headOfDepartment = $department->headOfDepartment;
+		self::assertCount(3, $headOfDepartment->coursesAssigned);
+		self::assertSame("COURSE_FIRST", $headOfDepartment->coursesAssigned[0]->id);
+		self::assertSame("COURSE_SECOND", $headOfDepartment->coursesAssigned[1]->id);
+		self::assertSame("COURSE_THIRD", $headOfDepartment->coursesAssigned[2]->id);
 	}
 }
