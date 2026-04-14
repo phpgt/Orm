@@ -8,7 +8,6 @@ use Gt\Database\Result\Row;
 use Gt\SqlBuilder\Condition\Condition;
 use Gt\SqlBuilder\SelectBuilder;
 use ReflectionClass;
-use ReflectionObject;
 use ReflectionProperty;
 use Stringable;
 
@@ -41,7 +40,7 @@ class Repository {
 	public function fetch(
 		string $className,
 		int|string|Condition... $match,
-	):null|object {
+	) {
 		$parameters = [];
 
 		$primaryKey = $this->getPrimaryKey($className);
@@ -58,7 +57,7 @@ class Repository {
 			->select(...$this->getColumnList($className))
 			->where("id = :id");
 
-		$resultSet = $this->database->executeSql($builder, $parameters);
+		$resultSet = $this->database->executeSql((string)$builder, $parameters);
 		$row = $resultSet->fetch();
 
 		$entity = $this->rowToEntity($row, $className);
@@ -127,12 +126,10 @@ class Repository {
 	 * @param null|object $instance An existing object reference to hydrate
 	 * @return null|T
 	 */
-	protected function rowToEntity(Row $row, string $className, ?object $instance = null):null|object {
+	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
 		$refClass = new ReflectionClass($className);
 
-		// Create an instance without constructor if none provided
-		// This allows setting readonly properties
-		if ($instance === null) {
+		if($instance === null) {
 			$instance = $refClass->newInstanceWithoutConstructor();
 		}
 
@@ -155,10 +152,10 @@ class Repository {
 				}
 			}
 
-				if(!$this->rowContains($row, $propertyName)) {
-					continue;
-				}
-				$rowValues[$propertyName] = $row->get($propertyName);
+			if(!$this->rowContains($row, $propertyName)) {
+				continue;
+			}
+			$rowValues[$propertyName] = $row->get($propertyName);
 		}
 
 		foreach($refPropertyArray as $refProperty) {
@@ -172,8 +169,7 @@ class Repository {
 			}
 			else {
 				$foreignPropertyType = $refProperty->getType()->getName();
-				// Skip if not a class type (e.g., string, int, etc.)
-				if (!class_exists($foreignPropertyType)) {
+				if(!class_exists($foreignPropertyType)) {
 					continue;
 				}
 
@@ -199,7 +195,7 @@ class Repository {
 					$foreignPrimaryKey,
 				);
 
-				if (!isset($rowValues[$columnName])) {
+				if(!isset($rowValues[$columnName])) {
 					continue;
 				}
 
@@ -230,7 +226,6 @@ class Repository {
 			}
 		}
 
-		// Use reflection directly to set the value regardless of readonly status
 		$refProperty->setValue($instance, $value);
 	}
 
@@ -241,13 +236,10 @@ class Repository {
 		null|int|string $foreignPrimaryKeyValue,
 	):void {
 		if(is_null($foreignPrimaryKeyValue)) {
-			// Leave the property unset
 			return;
 		}
 
 		$refClassForeign = new ReflectionClass($typeName);
-
-		// Create the lazy ghost with a callback that will load the entity when accessed
 		$lazyGhost = $refClassForeign->newLazyGhost(
 			function(object $ghost) use ($refClassForeign, $typeName, $foreignPrimaryKeyValue) {
 				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
@@ -255,15 +247,13 @@ class Repository {
 					if(!$refProperty->isInitialized($referencedEntity)) {
 						continue;
 					}
-					elseif($refProperty->isInitialized($referencedEntity)) {
-						$value = $refProperty->getValue($referencedEntity);
-						$refProperty->setValue($ghost, $value);
-					}
+
+					$value = $refProperty->getValue($referencedEntity);
+					$refProperty->setValue($ghost, $value);
 				}
 			}
 		);
 
-		// Set the ghost object as the property value
 		$refProperty->setValue($instance, $lazyGhost);
 	}
 
@@ -324,19 +314,6 @@ class Repository {
 		]);
 	}
 
-	private function buildJunctionKey(
-		string $propertyName,
-		string $foreignTableName,
-		string $foreignPrimaryKey,
-	):string {
-		return implode("_", [
-			$propertyName,
-			"junction",
-			$foreignTableName,
-			$foreignPrimaryKey,
-		]);
-	}
-
 	private function buildJunctionPlaceholderKey(string $propertyName):string {
 		return implode("_", [
 			$propertyName,
@@ -365,3 +342,13 @@ class Repository {
 
 		return $entity;
 	}
+
+	private function rowContains(Row $row, string $propertyName):bool {
+		try {
+			return $row->contains($propertyName);
+		}
+		catch(\TypeError) {
+			return false;
+		}
+	}
+}
