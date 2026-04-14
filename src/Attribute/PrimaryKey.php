@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Attribute;
+namespace GT\Orm\Attribute;
 
 use Attribute;
 

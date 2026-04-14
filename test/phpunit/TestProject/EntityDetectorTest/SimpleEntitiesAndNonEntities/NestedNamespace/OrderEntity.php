@@ -1,9 +1,9 @@
 <?php
-namespace Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NestedNamespace;
+namespace GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NestedNamespace;
 
 use DateTime;
-use Gt\Orm\Entity;
-use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
+use GT\Orm\Entity;
+use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 
 readonly class OrderEntity implements Entity {
 	public function __construct(

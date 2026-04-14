@@ -1,10 +1,10 @@
 <?php
-namespace Gt\Orm\Test\Migration;
+namespace GT\Orm\Test\Migration;
 
-use Gt\Orm\Migration\EntityDetector;
-use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NestedNamespace\OrderEntity;
-use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NotAnEntity;
-use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
+use GT\Orm\Migration\EntityDetector;
+use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NestedNamespace\OrderEntity;
+use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\NotAnEntity;
+use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class EntityDetectorTest extends TestCase {
