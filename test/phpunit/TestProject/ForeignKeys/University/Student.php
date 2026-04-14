@@ -1,8 +1,8 @@
 <?php
-namespace Gt\Orm\Test\TestProject\ForeignKeys\University;
+namespace GT\Orm\Test\TestProject\ForeignKeys\University;
 
 use DateTime;
-use Gt\Orm\Entity;
+use GT\Orm\Entity;
 
 readonly class Student extends Entity {
 	private string $password;

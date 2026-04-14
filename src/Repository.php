@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm;
+namespace GT\Orm;
 
 use DateTime;
 use DateTimeInterface;
@@ -38,7 +38,7 @@ class Repository {
 	public function fetch(
 		string $className,
 		int|string|Condition... $match,
-	) {
+	):null|object {
 		$parameters = [];
 
 		$primaryKey = $this->getPrimaryKey($className);
@@ -51,8 +51,6 @@ class Repository {
 		$builder->from($this->getTableName($className))
 			->select(...$this->getColumnList($className))
 			->where("id = :id");
-
-		$builder = (string)$builder;
 
 		$resultSet = $this->database->executeSql($builder, $parameters);
 		$row = $resultSet->fetch();
@@ -118,7 +116,7 @@ class Repository {
 	 * @param null|object $instance An existing object reference to hydrate
 	 * @return null|T
 	 */
-	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
+	protected function rowToEntity(Row $row, string $className, ?object $instance = null):null|object {
 		$refClass = new ReflectionClass($className);
 
 		// Create an instance without constructor if none provided
@@ -236,20 +234,11 @@ class Repository {
 						// Lazy property
 						die("LAZY!");
 					}
-					else {
+					elseif($refProperty->isInitialized($referencedEntity)) {
 						$value = $refProperty->getValue($referencedEntity);
+						$refProperty->setValue($ghost, $value);
 					}
-					$refProperty->setValue($ghost, $value);
 				}
-//				$referencedResultSet = $this->database->executeSql($builder, [
-//					"id" => $foreignPrimaryKeyValue,
-//				]);
-//				$referencedRow = $referencedResultSet->fetch();
-
-				// Hydrate the ghost object directly
-//				if ($referencedRow) {
-//					$this->rowToEntity($referencedRow, $typeName, $ghost);
-//				}
 			}
 		);
 

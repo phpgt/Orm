@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Migration;
+namespace GT\Orm\Migration;
 
 class SchemaTable {
 	private SchemaField $primaryKey;

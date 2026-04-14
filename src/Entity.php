@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm;
+namespace GT\Orm;
 
 interface Entity {
 }
