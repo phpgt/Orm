@@ -15,11 +15,13 @@
 
 	"autoload": {
 		"psr-4": {
+			"GT\\Orm\\": "./src",
 			"Gt\\Orm\\": "./src"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
+			"GT\\Orm\\Test\\": "./test/phpunit",
 			"Gt\\Orm\\Test\\": "./test/phpunit"
 		}
 	},

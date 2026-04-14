@@ -1,8 +1,8 @@
 <?php
-namespace Gt\Orm\Migration\Query;
+namespace GT\Orm\Migration\Query;
 
-use Gt\Orm\Migration\SchemaField;
-use Gt\Orm\Migration\SchemaTable;
+use GT\Orm\Migration\SchemaField;
+use GT\Orm\Migration\SchemaTable;
 
 abstract class SchemaQuery {
 	protected string $templateCreateStatement = "create table `{{tableName}}` ({{columnDefList}}\n)";

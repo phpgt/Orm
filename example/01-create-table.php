@@ -1,8 +1,8 @@
 <?php
-use Gt\Orm\Attribute\PrimaryKey;
-use Gt\Orm\Migration\Query\SchemaQuerySQLite;
-use Gt\Orm\Migration\SchemaGenerator;
-use Gt\Orm\Migration\SchemaTable;
+use GT\Orm\Attribute\PrimaryKey;
+use GT\Orm\Migration\Query\SchemaQuerySQLite;
+use GT\Orm\Migration\SchemaGenerator;
+use GT\Orm\Migration\SchemaTable;
 
 require(__DIR__ . "/../vendor/autoload.php");
 

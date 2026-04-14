@@ -1,7 +1,7 @@
 <?php
-namespace Gt\Orm\Migration;
+namespace GT\Orm\Migration;
 
-use Gt\Orm\Entity;
+use GT\Orm\Entity;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;

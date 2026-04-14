@@ -1,7 +1,7 @@
 <?php
-namespace Gt\Orm\Test\Migration;
+namespace GT\Orm\Test\Migration;
 
-use Gt\Orm\Migration\SchemaField;
+use GT\Orm\Migration\SchemaField;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
