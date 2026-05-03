@@ -7,6 +7,6 @@ use Attribute;
 class ListOf {
 	/** @param class-string $className */
 	public function __construct(
-		string $className
+		public string $className
 	) {}
 }

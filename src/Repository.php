@@ -8,6 +8,7 @@ use Gt\Database\Result\Row;
 use Gt\SqlBuilder\Condition\Condition;
 use Gt\SqlBuilder\SelectBuilder;
 use ReflectionClass;
+use ReflectionNamedType;
 use ReflectionProperty;
 use Stringable;
 
@@ -73,6 +74,7 @@ class Repository {
 	}
 
 	/** @param object|class-string $entity */
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 	private function getPrimaryKey(object|string $entity):string {
 		// TODO: How do we detect primary keys that are not called "id"?
 		return "id";
@@ -92,7 +94,10 @@ class Repository {
 			}
 
 			$name = $refProperty->getName();
-			$refType = $refProperty->getType();
+			$refType = $this->getNamedPropertyType($refProperty);
+			if($refType === null) {
+				continue;
+			}
 
 			if($refType->isBuiltin()) {
 				array_push($columnList, $name);
@@ -139,7 +144,12 @@ class Repository {
 
 		$rowValues = [];
 		foreach($refPropertyArray as $refProperty) {
-			$refTypeName = $refProperty->getType()->getName();
+			$refType = $this->getNamedPropertyType($refProperty);
+			if($refType === null) {
+				continue;
+			}
+
+			$refTypeName = $refType->getName();
 			$propertyName = $refProperty->getName();
 			if(class_exists($refTypeName)) {
 				if(is_subclass_of($refTypeName, \Traversable::class)) {
@@ -168,7 +178,12 @@ class Repository {
 				);
 			}
 			else {
-				$foreignPropertyType = $refProperty->getType()->getName();
+				$refType = $this->getNamedPropertyType($refProperty);
+				if($refType === null) {
+					continue;
+				}
+
+				$foreignPropertyType = $refType->getName();
 				if(!class_exists($foreignPropertyType)) {
 					continue;
 				}
@@ -218,6 +233,10 @@ class Repository {
 		string $value,
 	):void {
 		$refType = $refProperty->getType();
+		if(!$refType instanceof ReflectionNamedType) {
+			return;
+		}
+
 		if(!$refType->isBuiltin()) {
 			$typeName = $refType->getName();
 
@@ -229,6 +248,7 @@ class Repository {
 		$refProperty->setValue($instance, $value);
 	}
 
+	/** @param class-string $typeName */
 	private function handleLazyInstanceProperty(
 		object $instance,
 		ReflectionProperty $refProperty,
@@ -257,6 +277,7 @@ class Repository {
 		$refProperty->setValue($instance, $lazyGhost);
 	}
 
+	/** @param class-string $typeName */
 	private function handleLazyCollectionProperty(
 		object $instance,
 		ReflectionProperty $refProperty,
@@ -323,6 +344,7 @@ class Repository {
 		]);
 	}
 
+	/** @return class-string */
 	private function inferCollectionItemClassName(string $collectionClassName):string {
 		$namespace = substr($collectionClassName, 0, (int)strrpos($collectionClassName, "\\"));
 		$shortName = substr($collectionClassName, (int)strrpos($collectionClassName, "\\") + 1);
@@ -334,6 +356,7 @@ class Repository {
 		return $collectionClassName;
 	}
 
+	/** @param class-string $className */
 	private function rowToPartialEntity(Row $row, string $className):object {
 		$entity = (new ReflectionClass($className))->newInstanceWithoutConstructor();
 		$primaryKey = $this->getPrimaryKey($className);
@@ -350,5 +373,14 @@ class Repository {
 		catch(\TypeError) {
 			return false;
 		}
+	}
+
+	private function getNamedPropertyType(ReflectionProperty $refProperty):?ReflectionNamedType {
+		$refType = $refProperty->getType();
+		if(!$refType instanceof ReflectionNamedType) {
+			return null;
+		}
+
+		return $refType;
 	}
 }
