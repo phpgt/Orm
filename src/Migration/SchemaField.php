@@ -6,6 +6,7 @@ class SchemaField {
 	private bool $nullable;
 	private mixed $defaultValue;
 	private bool $autoIncrement;
+	private bool $ulid;
 	private string $foreignKeyReferenceTable;
 	private string $foreignKeyReferenceField;
 	private bool $unique;
@@ -52,6 +53,14 @@ class SchemaField {
 
 	public function isAutoIncrement():bool {
 		return $this->autoIncrement ?? false;
+	}
+
+	public function setUlid(bool $ulid):void {
+		$this->ulid = $ulid;
+	}
+
+	public function isUlid():bool {
+		return $this->ulid ?? false;
 	}
 
 	public function setForeignKeyReference(string $table, string $field):void {

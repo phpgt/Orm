@@ -34,12 +34,12 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 
 		$expected = <<<SQL
 		create table `TestTable` (
-			`id` int not null primary key,
+			`id` integer not null primary key,
 			`name` text null
 		)
 		SQL;
 
-		self::assertSameSQL(
+		self::assertSameSql(
 			$expected,
 			$sut->generateSql(),
 		);
@@ -72,12 +72,12 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 
 		$expectedSqlite = <<<SQL
 		create table `TestTable` (
-			`id` int not null primary key autoincrement,
+			`id` integer not null primary key autoincrement,
 			`name` text null
 		)
 		SQL;
 
-		self::assertSameSQL(
+		self::assertSameSql(
 			$expectedSqlite,
 			$sutSqlite->generateSql(),
 		);
@@ -89,9 +89,59 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		)
 		SQL;
 
-		self::assertSameSQL(
+		self::assertSameSql(
 			$expectedMySql,
 			$sutMySql->generateSql(),
 		);
+	}
+
+	public function testGenerateSql_foreignKey():void {
+		$field = new SchemaField("teacher_Teacher_id");
+		$field->setType("int");
+		$field->setNullable(false);
+		$field->setForeignKeyReference("Teacher", "id");
+
+		$schemaTable = self::createMock(SchemaTable::class);
+		$schemaTable->method("getName")
+			->willReturn("Lesson");
+		$schemaTable->method("getPrimaryKey")
+			->willReturn(null);
+		$schemaTable->method("getFieldList")
+			->willReturn([$field]);
+
+		$sut = new SchemaQuerySQLite($schemaTable);
+
+		$expected = <<<SQL
+		create table `Lesson` (
+			`teacher_Teacher_id` integer not null references `Teacher` (`id`)
+		)
+		SQL;
+
+		self::assertSameSql($expected, $sut->generateSql());
+	}
+
+	public function testGenerateSql_ulidDoesNotAffectColumnSqlYet():void {
+		$field = new SchemaField("id");
+		$field->setType("string");
+		$field->setNullable(false);
+		$field->setUlid(true);
+
+		$schemaTable = self::createMock(SchemaTable::class);
+		$schemaTable->method("getName")
+			->willReturn("Thing");
+		$schemaTable->method("getPrimaryKey")
+			->willReturn($field);
+		$schemaTable->method("getFieldList")
+			->willReturn([$field]);
+
+		$sut = new SchemaQuerySQLite($schemaTable);
+
+		$expected = <<<SQL
+		create table `Thing` (
+			`id` text not null primary key
+		)
+		SQL;
+
+		self::assertSameSql($expected, $sut->generateSql());
 	}
 }

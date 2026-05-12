@@ -7,6 +7,7 @@ use GT\Orm\Migration\SchemaTable;
 class SchemaQuerySQLite extends SchemaQuery {
 	protected function type(string $type):string {
 		return match($type) {
+			"int" => "integer",
 			"string" => "text",
 			default => $type,
 		};

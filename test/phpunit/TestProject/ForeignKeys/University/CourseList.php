@@ -3,17 +3,18 @@ namespace GT\Orm\Test\TestProject\ForeignKeys\University;
 
 use ArrayAccess;
 use ArrayIterator;
-use ArrayObject;
 use IteratorAggregate;
 use Traversable;
 
 /**
- * @implements ArrayAccess<Course>
- * @implements IteratorAggregate<Course>
+ * @implements ArrayAccess<int, Course>
+ * @implements IteratorAggregate<int, Course>
  */
 class CourseList implements ArrayAccess, IteratorAggregate {
+	/** @param array<int, Course> $courseArray */
 	public function __construct(private readonly array $courseArray) {}
 
+	/** @return Traversable<int, Course> */
 	public function getIterator():Traversable {
 		return new ArrayIterator($this->courseArray);
 	}
@@ -22,7 +23,7 @@ class CourseList implements ArrayAccess, IteratorAggregate {
 		return isset($this->courseArray[$offset]);
 	}
 
-	public function offsetGet(mixed $offset):mixed {
+	public function offsetGet(mixed $offset):Course {
 		return $this->courseArray[$offset];
 	}
 
