@@ -22,7 +22,7 @@ class RepositoryTest extends TestCase {
 	 * not refer to the headOfDepartment property.
 	 */
 	public function testFetch_byId():void {
-		$row = self::createMock(Row::class);
+		$row = self::createStub(Row::class);
 		$row->method("contains")
 			->willReturnMap([
 				["id", true],
@@ -73,7 +73,7 @@ class RepositoryTest extends TestCase {
 	 * TODO: After a lazy query has been executed, cache the entities by ID.
 	 */
 	public function testFetch_lazyProperty():void {
-		$rowDepartment = self::createMock(Row::class);
+		$rowDepartment = self::createStub(Row::class);
 		$rowDepartment->method("contains")
 			->willReturnMap([
 				["id", true],
@@ -90,7 +90,7 @@ class RepositoryTest extends TestCase {
 				["headOfDepartment_Teacher_id", "TEACHER_JOHN"],
 			]);
 
-		$rowTeacher = self::createMock(Row::class);
+		$rowTeacher = self::createStub(Row::class);
 		$rowTeacher->method("contains")
 			->willReturnMap([
 				["id", true],
@@ -147,7 +147,7 @@ class RepositoryTest extends TestCase {
 	 * TODO: After a lazy query has been executed, cache the entities by ID.
 	 */
 	public function testFetch_lazyPropertyNested():void {
-		$rowDepartment = self::createMock(Row::class);
+		$rowDepartment = self::createStub(Row::class);
 		$rowDepartment->method("contains")
 			->willReturnMap([
 				["id", true],
@@ -162,7 +162,7 @@ class RepositoryTest extends TestCase {
 				["headOfDepartment_Teacher_id", "TEACHER_JOHN"],
 			]);
 
-		$rowTeacher = self::createMock(Row::class);
+		$rowTeacher = self::createStub(Row::class);
 		$rowTeacher->method("contains")
 			->willReturnMap([
 				["id", true],
@@ -178,12 +178,12 @@ class RepositoryTest extends TestCase {
 				["lastName", "Johnson"],
 			]);
 
-		$rowCourse1 = self::createMock(Row::class);
-		$rowCourse1->method("get")->with("id")->willReturn("COURSE_FIRST");
-		$rowCourse2 = self::createMock(Row::class);
-		$rowCourse2->method("get")->with("id")->willReturn("COURSE_SECOND");
-		$rowCourse3 = self::createMock(Row::class);
-		$rowCourse3->method("get")->with("id")->willReturn("COURSE_THIRD");
+		$rowCourse1 = self::createStub(Row::class);
+		$rowCourse1->method("get")->willReturn("COURSE_FIRST");
+		$rowCourse2 = self::createStub(Row::class);
+		$rowCourse2->method("get")->willReturn("COURSE_SECOND");
+		$rowCourse3 = self::createStub(Row::class);
+		$rowCourse3->method("get")->willReturn("COURSE_THIRD");
 
 		$resultSetDepartment = self::createMock(ResultSet::class);
 		$resultSetDepartment->expects(self::once())
@@ -195,7 +195,7 @@ class RepositoryTest extends TestCase {
 			->method("fetch")
 			->willReturn($rowTeacher);
 
-		$resultSetCourse = self::createMock(ResultSet::class);
+		$resultSetCourse = self::createStub(ResultSet::class);
 		$resultSetCourse
 			->method("fetch")
 			->willReturnOnConsecutiveCalls(

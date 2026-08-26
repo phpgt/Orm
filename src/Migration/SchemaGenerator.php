@@ -1,7 +1,6 @@
 <?php
 namespace GT\Orm\Migration;
 
-use GT\Orm\Entity;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -54,7 +53,7 @@ class SchemaGenerator {
 	}
 
 	/**
-	 * @param ReflectionClass<Entity> $refClass
+	 * @param ReflectionClass<object> $refClass
 	 * @return array<string, SchemaField>
 	 */
 	private function generateFields(

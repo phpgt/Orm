@@ -72,7 +72,7 @@ class Repository {
 	}
 
 	/**
-	 * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+	 * @SuppressWarnings("PHPMD.UnusedFormalParameter")
 	 * @param object|class-string $entity
 	 */
 	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Reserved for primary-key detection.
@@ -254,8 +254,6 @@ class Repository {
 		}
 
 		$refClassForeign = new ReflectionClass($typeName);
-		// PHPStan 1.x predates ReflectionClass::newLazyGhost() from PHP 8.4.
-		// @phpstan-ignore-next-line
 		$lazyGhost = $refClassForeign->newLazyGhost(
 			function(object $ghost) use ($refClassForeign, $typeName, $foreignPrimaryKeyValue) {
 				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
@@ -281,8 +279,6 @@ class Repository {
 		$refClassCollection = new ReflectionClass($typeName);
 		$itemClassName = $this->inferCollectionItemClassName($typeName);
 
-		// PHPStan 1.x predates ReflectionClass::newLazyGhost() from PHP 8.4.
-		// @phpstan-ignore-next-line
 		$lazyGhost = $refClassCollection->newLazyGhost(
 			function(object $ghost) use ($refClassCollection, $typeName, $itemClassName) {
 				$builder = new SelectBuilder();
