@@ -3,8 +3,8 @@
 	"description": "Object relational mapper.",
 	"license": "MIT",
 	"require": {
-		"phpgt/sqlbuilder": "dev-master",
-		"phpgt/database": "dev-master"
+		"phpgt/sqlbuilder": "^1.1",
+		"phpgt/database": "^1.8"
 	},
 	"require-dev": {
 		"phpstan/phpstan": "^1.10",
@@ -21,20 +21,19 @@
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"GT\\Orm\\Test\\": "./test/phpunit",
-			"Gt\\Orm\\Test\\": "./test/phpunit"
+			"GT\\Orm\\Test\\": "./test/phpunit"
 		}
 	},
 	"scripts": {
 		"phpunit": "vendor/bin/phpunit --configuration phpunit.xml",
-		"phpstan": "vendor/bin/phpstan analyse --level 6 --memory-limit 1G src",
 		"phpcs": "vendor/bin/phpcs src --standard=phpcs.xml",
 		"phpmd": "vendor/bin/phpmd src/ text phpmd.xml",
+		"phpstan": "vendor/bin/phpstan analyse --level 6 --memory-limit 1G src",
 		"test": [
 			"@phpunit",
-			"@phpstan",
 			"@phpcs",
-			"@phpmd"
+			"@phpmd",
+			"@phpstan"
 		]
 	},
 	"keywords": [

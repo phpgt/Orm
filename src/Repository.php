@@ -1,15 +1,14 @@
 <?php
 namespace GT\Orm;
 
-use DateTime;
 use DateTimeInterface;
-use Gt\Database\Database;
-use Gt\Database\Result\Row;
-use Gt\SqlBuilder\Condition\Condition;
-use Gt\SqlBuilder\SelectBuilder;
+use GT\Database\Database;
+use GT\Database\Result\Row;
+use GT\SqlBuilder\Condition\Condition;
+use GT\SqlBuilder\SelectBuilder;
 use ReflectionClass;
+use ReflectionNamedType;
 use ReflectionProperty;
-use Stringable;
 
 class Repository {
 	/** @var array<class-string, array<int|string, object>> */
@@ -45,7 +44,7 @@ class Repository {
 
 		$primaryKey = $this->getPrimaryKey($className);
 
-		if(count($match) === 1 && (is_int($match[0]) || is_string($match[0]))) {
+		if(count($match) === 1 && !$match[0] instanceof Condition) {
 			$parameters[$primaryKey] = $match[0];
 			if(isset($this->entityCache[$className][$match[0]])) {
 				return $this->entityCache[$className][$match[0]];
@@ -72,7 +71,11 @@ class Repository {
 		return (new ReflectionClass($entityClassName))->getShortName();
 	}
 
-	/** @param object|class-string $entity */
+	/**
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+	 * @param object|class-string $entity
+	 */
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Reserved for primary-key detection.
 	private function getPrimaryKey(object|string $entity):string {
 		// TODO: How do we detect primary keys that are not called "id"?
 		return "id";
@@ -93,6 +96,7 @@ class Repository {
 
 			$name = $refProperty->getName();
 			$refType = $refProperty->getType();
+			assert($refType instanceof ReflectionNamedType);
 
 			if($refType->isBuiltin()) {
 				array_push($columnList, $name);
@@ -100,16 +104,12 @@ class Repository {
 			}
 
 			$type = $refType->getName();
-			$allowedPlainClasses = [
-				DateTimeInterface::class,
-				Stringable::class,
-			];
-
-			foreach($allowedPlainClasses as $plainClass) {
-				if(is_subclass_of($type, $plainClass) || $type === $plainClass) {
-					array_push($columnList, $name);
-					continue(2);
-				}
+			if(
+				is_a($type, DateTimeInterface::class, true)
+				|| is_a($type, "Stringable", true)
+			) {
+				array_push($columnList, $name);
+				continue;
 			}
 
 			$referencedPrimaryKey = $this->getPrimaryKey($type);
@@ -139,7 +139,9 @@ class Repository {
 
 		$rowValues = [];
 		foreach($refPropertyArray as $refProperty) {
-			$refTypeName = $refProperty->getType()->getName();
+			$refType = $refProperty->getType();
+			assert($refType instanceof ReflectionNamedType);
+			$refTypeName = $refType->getName();
 			$propertyName = $refProperty->getName();
 			if(class_exists($refTypeName)) {
 				if(is_subclass_of($refTypeName, \Traversable::class)) {
@@ -159,57 +161,67 @@ class Repository {
 		}
 
 		foreach($refPropertyArray as $refProperty) {
-			$propertyName = $refProperty->getName();
-			if(isset($rowValues[$propertyName])) {
-				$this->setInstanceProperty(
-					$instance,
-					$refProperty,
-					$rowValues[$propertyName],
-				);
-			}
-			else {
-				$foreignPropertyType = $refProperty->getType()->getName();
-				if(!class_exists($foreignPropertyType)) {
-					continue;
-				}
-
-				if(is_subclass_of($foreignPropertyType, \Traversable::class)) {
-					$columnName = $this->buildJunctionPlaceholderKey($propertyName);
-					if(!array_key_exists($columnName, $rowValues)) {
-						continue;
-					}
-
-					$this->handleLazyCollectionProperty(
-						$instance,
-						$refProperty,
-						$foreignPropertyType,
-					);
-					continue;
-				}
-
-				$foreignTableName = $this->getTableName($foreignPropertyType);
-				$foreignPrimaryKey = $this->getPrimaryKey($foreignPropertyType);
-				$columnName = $this->buildForeignKey(
-					$propertyName,
-					$foreignTableName,
-					$foreignPrimaryKey,
-				);
-
-				if(!isset($rowValues[$columnName])) {
-					continue;
-				}
-
-				$foreignPrimaryKeyValue = $rowValues[$columnName];
-				$this->handleLazyInstanceProperty(
-					$instance,
-					$refProperty,
-					$foreignPropertyType,
-					$foreignPrimaryKeyValue,
-				);
-			}
+			$this->hydrateProperty($instance, $refProperty, $rowValues);
 		}
 
 		return $instance;
+	}
+
+	/** @param array<string, mixed> $rowValues */
+	private function hydrateProperty(
+		object $instance,
+		ReflectionProperty $refProperty,
+		array $rowValues,
+	):void {
+		$propertyName = $refProperty->getName();
+		if(isset($rowValues[$propertyName])) {
+			$this->setInstanceProperty(
+				$instance,
+				$refProperty,
+				$rowValues[$propertyName],
+			);
+			return;
+		}
+
+		$refType = $refProperty->getType();
+		assert($refType instanceof ReflectionNamedType);
+		$foreignPropertyType = $refType->getName();
+		if(!class_exists($foreignPropertyType)) {
+			return;
+		}
+
+		if(is_subclass_of($foreignPropertyType, \Traversable::class)) {
+			$columnName = $this->buildJunctionPlaceholderKey($propertyName);
+			if(!array_key_exists($columnName, $rowValues)) {
+				return;
+			}
+
+			$this->handleLazyCollectionProperty(
+				$instance,
+				$refProperty,
+				$foreignPropertyType,
+			);
+			return;
+		}
+
+		$foreignTableName = $this->getTableName($foreignPropertyType);
+		$foreignPrimaryKey = $this->getPrimaryKey($foreignPropertyType);
+		$columnName = $this->buildForeignKey(
+			$propertyName,
+			$foreignTableName,
+			$foreignPrimaryKey,
+		);
+
+		if(!isset($rowValues[$columnName])) {
+			return;
+		}
+
+		$this->handleLazyInstanceProperty(
+			$instance,
+			$refProperty,
+			$foreignPropertyType,
+			$rowValues[$columnName],
+		);
 	}
 
 	private function setInstanceProperty(
@@ -218,6 +230,7 @@ class Repository {
 		string $value,
 	):void {
 		$refType = $refProperty->getType();
+		assert($refType instanceof ReflectionNamedType);
 		if(!$refType->isBuiltin()) {
 			$typeName = $refType->getName();
 
@@ -229,6 +242,7 @@ class Repository {
 		$refProperty->setValue($instance, $value);
 	}
 
+	/** @param class-string $typeName */
 	private function handleLazyInstanceProperty(
 		object $instance,
 		ReflectionProperty $refProperty,
@@ -240,6 +254,8 @@ class Repository {
 		}
 
 		$refClassForeign = new ReflectionClass($typeName);
+		// PHPStan 1.x predates ReflectionClass::newLazyGhost() from PHP 8.4.
+		// @phpstan-ignore-next-line
 		$lazyGhost = $refClassForeign->newLazyGhost(
 			function(object $ghost) use ($refClassForeign, $typeName, $foreignPrimaryKeyValue) {
 				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
@@ -265,6 +281,8 @@ class Repository {
 		$refClassCollection = new ReflectionClass($typeName);
 		$itemClassName = $this->inferCollectionItemClassName($typeName);
 
+		// PHPStan 1.x predates ReflectionClass::newLazyGhost() from PHP 8.4.
+		// @phpstan-ignore-next-line
 		$lazyGhost = $refClassCollection->newLazyGhost(
 			function(object $ghost) use ($refClassCollection, $typeName, $itemClassName) {
 				$builder = new SelectBuilder();
@@ -347,7 +365,7 @@ class Repository {
 		try {
 			return $row->contains($propertyName);
 		}
-		catch(\TypeError) {
+		catch(\Throwable) {
 			return false;
 		}
 	}
