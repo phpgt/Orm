@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities;
+namespace GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities;
 
 readonly class NotAnEntity {
 

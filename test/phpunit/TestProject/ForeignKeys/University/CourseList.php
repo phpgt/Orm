@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Test\TestProject\ForeignKeys\University;
+namespace GT\Orm\Test\TestProject\ForeignKeys\University;
 
 use ArrayAccess;
 use ArrayIterator;

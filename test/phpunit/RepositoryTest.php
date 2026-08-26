@@ -1,13 +1,13 @@
 <?php
-namespace Gt\Orm\Test;
+namespace GT\Orm\Test;
 
 use Gt\Database\Database;
 use Gt\Database\Result\ResultSet;
 use Gt\Database\Result\Row;
-use Gt\Orm\Repository;
-use Gt\Orm\Test\TestProject\ForeignKeys\University\Department;
-use Gt\Orm\Test\TestProject\ForeignKeys\University\Student;
-use Gt\Orm\Test\TestProject\ForeignKeys\University\UniversityRepository;
+use GT\Orm\Repository;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Department;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Student;
+use GT\Orm\Test\TestProject\ForeignKeys\University\UniversityRepository;
 use Gt\SqlBuilder\SelectBuilder;
 use PHPUnit\Framework\TestCase;
 
@@ -118,13 +118,16 @@ class RepositoryTest extends TestCase {
 		$database = self::createMock(Database::class);
 		$database->expects(self::exactly(2))
 			->method("executeSql")
-			->willReturnOnConsecutiveCalls(
-				$resultSetDepartment,
-				$resultSetTeacher,
-			);
+			->willReturnCallback(function(string $query, array $args)use($resultSetDepartment, $resultSetTeacher) {
+				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
+				return match($query) {
+					"select id, name, headOfDepartment_Teacher_id from Department where id = :id" => $resultSetDepartment,
+					"select id, firstName, lastName, coursesAssigned_CourseList_id from Teacher where id = :id" => $resultSetTeacher,
+				};
+			});
 
 		$sut = new UniversityRepository($database);
-		$department = $sut->fetch(Department::class, 12345);
+		$department = $sut->fetch(Department::class, "DEPARTMENT_COMPUTING");
 		self::assertSame("DEPARTMENT_COMPUTING", $department->id);
 		self::assertSame("Computing", $department->name);
 		self::assertSame("TEACHER_JOHN", $department->headOfDepartment->id);

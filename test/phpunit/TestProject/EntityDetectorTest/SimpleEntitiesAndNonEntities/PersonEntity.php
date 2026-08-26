@@ -1,8 +1,8 @@
 <?php
-namespace Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities;
+namespace GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities;
 
 use DateTime;
-use Gt\Orm\Entity;
+use GT\Orm\Entity;
 
 readonly class PersonEntity implements Entity {
 	public function __construct(

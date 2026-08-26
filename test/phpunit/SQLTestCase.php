@@ -1,5 +1,5 @@
 <?php
-namespace Gt\Orm\Test;
+namespace GT\Orm\Test;
 
 use PHPUnit\Framework\TestCase;
 

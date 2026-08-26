@@ -1,7 +1,7 @@
 <?php
-namespace Gt\Orm\Migration\Query;
+namespace GT\Orm\Migration\Query;
 
-use Gt\Orm\Migration\Query\SchemaQuery;
+use GT\Orm\Migration\Query\SchemaQuery;
 
 class SchemaQueryMySQL extends SchemaQuery {
 	protected string $columnDefPartAutoIncrement = "auto_increment";

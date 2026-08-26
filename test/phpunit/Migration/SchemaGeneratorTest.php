@@ -1,9 +1,9 @@
 <?php
-namespace Gt\Orm\Test\Migration;
+namespace GT\Orm\Test\Migration;
 
 use DateTime;
-use Gt\Orm\Migration\SchemaGenerator;
-use Gt\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
+use GT\Orm\Migration\SchemaGenerator;
+use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 use PHPUnit\Framework\TestCase;
 
 class SchemaGeneratorTest extends TestCase {

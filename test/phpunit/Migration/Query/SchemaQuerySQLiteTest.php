@@ -1,11 +1,11 @@
 <?php
-namespace Gt\Orm\Test\Migration\Query;
+namespace GT\Orm\Test\Migration\Query;
 
-use Gt\Orm\Migration\Query\SchemaQueryMySQL;
-use Gt\Orm\Migration\Query\SchemaQuerySQLite;
-use Gt\Orm\Migration\SchemaField;
-use Gt\Orm\Migration\SchemaTable;
-use Gt\Orm\Test\SQLTestCase;
+use GT\Orm\Migration\Query\SchemaQueryMySQL;
+use GT\Orm\Migration\Query\SchemaQuerySQLite;
+use GT\Orm\Migration\SchemaField;
+use GT\Orm\Migration\SchemaTable;
+use GT\Orm\Test\SQLTestCase;
 use PHPUnit\Framework\TestCase;
 
 class SchemaQuerySQLiteTest extends SQLTestCase {
