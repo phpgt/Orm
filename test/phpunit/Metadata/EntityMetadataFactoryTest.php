@@ -6,12 +6,18 @@ use GT\Orm\Attribute\AutoIncrementPrimaryKey;
 use GT\Orm\Attribute\DefaultValue;
 use GT\Orm\Attribute\PrimaryKey;
 use GT\Orm\Exception\InvalidAutoIncrementException;
+use GT\Orm\Exception\InvalidCollectionException;
 use GT\Orm\Exception\InvalidDefaultValueException;
 use GT\Orm\Exception\InvalidEntityPropertyException;
 use GT\Orm\Exception\InvalidPrimaryKeyException;
 use GT\Orm\Metadata\EntityMetadataFactory;
 use GT\Orm\Metadata\PropertyKind;
 use GT\Orm\Test\TestProject\Metadata\EnumEntity;
+use GT\Orm\Test\TestProject\Metadata\InvalidItemTypeCollection;
+use GT\Orm\Test\TestProject\Metadata\ImportedItemCollection;
+use GT\Orm\Test\TestProject\Metadata\MissingItemTypeCollection;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Course;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Teacher;
 use PHPUnit\Framework\TestCase;
 
 class EntityMetadataFactoryTest extends TestCase {
@@ -95,6 +101,54 @@ class EntityMetadataFactoryTest extends TestCase {
 
 		self::assertSame(PropertyKind::BACKED_ENUM, $propertyList[1]->getKind());
 		self::assertSame("string", $propertyList[1]->getStorageType());
+	}
+
+	public function testCollectionItemTypeIsReadFromPhpDoc():void {
+		$propertyList = (new EntityMetadataFactory())->get(Teacher::class)
+			->getPropertyList();
+
+		self::assertSame(PropertyKind::COLLECTION, $propertyList[3]->getKind());
+		self::assertSame(
+			Course::class,
+			$propertyList[3]->getCollectionItemClassName(),
+		);
+	}
+
+	public function testCollectionWithoutItemTypeIsRejected():void {
+		$entity = new class() {
+			public int $id;
+			public MissingItemTypeCollection $items;
+		};
+
+		$this->expectException(InvalidCollectionException::class);
+		$this->expectExceptionMessage("must declare @extends Collection<TKey, Entity>");
+		(new EntityMetadataFactory())->get($entity);
+	}
+
+	public function testCollectionItemMustBeAnEntity():void {
+		$entity = new class() {
+			public int $id;
+			public InvalidItemTypeCollection $items;
+		};
+
+		$this->expectException(InvalidCollectionException::class);
+		$this->expectExceptionMessage("must implement " . \GT\Orm\Entity::class);
+		(new EntityMetadataFactory())->get($entity);
+	}
+
+	public function testCollectionItemTypeCanUseAnImportedAlias():void {
+		$entity = new class() {
+			public int $id;
+			public ImportedItemCollection $items;
+		};
+
+		$propertyList = (new EntityMetadataFactory())->get($entity)
+			->getPropertyList();
+
+		self::assertSame(
+			Course::class,
+			$propertyList[1]->getCollectionItemClassName(),
+		);
 	}
 
 	public function testMetadataIsCachedByClass():void {

@@ -30,6 +30,9 @@ class PropertyMetadataFactory {
 		}
 
 		$kind = $this->typeClassifier->classify($className, $property, $type);
+		$collectionItemClassName = $kind === PropertyKind::COLLECTION
+			? $this->typeClassifier->collectionItemClass($type->getName())
+			: null;
 		$autoIncrement = $this->getAutoIncrementPrimaryKey($property);
 		$defaultAttribute = $this->getDefaultValue($className, $property);
 		$this->validatePrimaryKey($className, $property, $type, $kind, $primaryKey);
@@ -40,6 +43,7 @@ class PropertyMetadataFactory {
 			$property,
 			$type,
 			$kind,
+			$collectionItemClassName,
 			$primaryKey,
 			$autoIncrement,
 			$defaultAttribute !== null,

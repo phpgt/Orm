@@ -14,12 +14,37 @@ class ColumnName {
 		]);
 	}
 
-	public function junctionPlaceholder(string $propertyName):string {
-		return implode("_", [
-			$propertyName,
-			"TODO",
-			"JUNCTION",
-			"TABLE",
-		]);
+	public function junctionTable(
+		string $ownerTable,
+		string $propertyName,
+		string $itemTable,
+	):string {
+		return implode("_", [$ownerTable, $propertyName, $itemTable]);
+	}
+
+	public function junctionForeignKey(
+		string $tableName,
+		string $primaryKey,
+	):string {
+		return implode("_", [$tableName, $primaryKey]);
+	}
+
+	public function junctionItemForeignKey(
+		string $ownerTable,
+		string $ownerPrimaryKey,
+		string $propertyName,
+		string $itemTable,
+		string $itemPrimaryKey,
+	):string {
+		$ownerColumn = $this->junctionForeignKey(
+			$ownerTable,
+			$ownerPrimaryKey,
+		);
+		$itemColumn = $this->junctionForeignKey($itemTable, $itemPrimaryKey);
+		if($itemColumn !== $ownerColumn) {
+			return $itemColumn;
+		}
+
+		return $this->foreignKey($propertyName, $itemTable, $itemPrimaryKey);
 	}
 }

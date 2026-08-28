@@ -5,6 +5,7 @@ use BackedEnum;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
+use LogicException;
 use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionProperty;
@@ -14,6 +15,7 @@ readonly class PropertyMetadata {
 		private ReflectionProperty $property,
 		private ReflectionNamedType $type,
 		private PropertyKind $kind,
+		private ?string $collectionItemClassName,
 		private bool $primaryKey,
 		private bool $autoIncrement,
 		private bool $hasDefaultValue,
@@ -43,6 +45,17 @@ readonly class PropertyMetadata {
 
 	public function getKind():PropertyKind {
 		return $this->kind;
+	}
+
+	/** @return class-string */
+	public function getCollectionItemClassName():string {
+		if($this->collectionItemClassName === null) {
+			throw new LogicException(
+				"Property {$this->getName()} is not a collection",
+			);
+		}
+
+		return $this->collectionItemClassName;
 	}
 
 	public function isNullable():bool {

@@ -6,9 +6,12 @@ use GT\Orm\Migration\Query\SchemaQueryMySQL;
 use GT\Orm\Migration\Query\SchemaQuerySQLite;
 use GT\Orm\Migration\SchemaGenerator;
 use GT\Orm\Test\SQLTestCase;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Course;
+use GT\Orm\Test\TestProject\ForeignKeys\University\Teacher;
 use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
 use GT\Orm\Test\TestProject\Metadata\AutoIncrementEntity;
 use GT\Orm\Test\TestProject\Metadata\DefaultValueEntity;
+use PDO;
 
 class SchemaGeneratorTest extends SQLTestCase {
 	public function testGenerate():void {
@@ -135,5 +138,79 @@ class SchemaGeneratorTest extends SQLTestCase {
 			$expectedMySql,
 			(new SchemaQueryMySQL($table))->generateSql(),
 		);
+	}
+
+	public function testGenerateJunctionTable():void {
+		$tableList = (new SchemaGenerator())->generateJunctionTableList(
+			Teacher::class,
+		);
+
+		self::assertCount(1, $tableList);
+		$table = $tableList[0];
+		self::assertSame("Teacher_coursesAssigned_Course", $table->getName());
+		self::assertSame("id", $table->getPrimaryKey()->getName());
+		self::assertTrue($table->getPrimaryKey()->isAutoIncrement());
+
+		$expectedSqlite = <<<SQL
+		create table `Teacher_coursesAssigned_Course` (
+			`id` integer not null primary key autoincrement,
+			`Teacher_id` text not null references `Teacher` (`id`),
+			`Course_id` text not null references `Course` (`id`)
+		)
+		SQL;
+		self::assertSameSQL(
+			$expectedSqlite,
+			(new SchemaQuerySQLite($table))->generateSql(),
+		);
+
+		$expectedMySql = <<<SQL
+		create table `Teacher_coursesAssigned_Course` (
+			`id` int not null primary key auto_increment,
+			`Teacher_id` text not null references `Teacher` (`id`),
+			`Course_id` text not null references `Course` (`id`)
+		)
+		SQL;
+		self::assertSameSQL(
+			$expectedMySql,
+			(new SchemaQueryMySQL($table))->generateSql(),
+		);
+	}
+
+	public function testGenerateAllPlacesJunctionsAfterEntityTables():void {
+		$tableList = (new SchemaGenerator())->generateAll(
+			Teacher::class,
+			Course::class,
+		);
+
+		self::assertSame(
+			["Teacher", "Course", "Teacher_coursesAssigned_Course"],
+			array_map(
+				fn($table) => $table->getName(),
+				$tableList,
+			),
+		);
+	}
+
+	public function testJunctionTableAllowsRepeatedEntityPairs():void {
+		$table = (new SchemaGenerator())->generateJunctionTableList(
+			Teacher::class,
+		)[0];
+		$pdo = new PDO("sqlite::memory:");
+		$pdo->exec((new SchemaQuerySQLite($table))->generateSql());
+		$pdo->exec(<<<SQL
+			insert into `Teacher_coursesAssigned_Course`
+				(`Teacher_id`, `Course_id`)
+			values
+				('TEACHER_JOHN', 'COURSE_FIRST'),
+				('TEACHER_JOHN', 'COURSE_FIRST')
+		SQL);
+
+		$idList = $pdo->query(<<<SQL
+			select `id`
+			from `Teacher_coursesAssigned_Course`
+			order by `id`
+		SQL)->fetchAll(PDO::FETCH_COLUMN);
+
+		self::assertSame([1, 2], $idList);
 	}
 }

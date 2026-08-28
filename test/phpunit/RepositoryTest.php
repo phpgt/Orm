@@ -202,7 +202,7 @@ class RepositoryTest extends TestCase {
 				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
 				return match($query) {
 					"select id, name, headOfDepartment_Teacher_id from Department where id = :id" => $resultSetDepartment,
-					"select id, firstName, lastName, coursesAssigned_TODO_JUNCTION_TABLE from Teacher where id = :id" => $resultSetTeacher,
+					"select id, firstName, lastName from Teacher where id = :id" => $resultSetTeacher,
 				};
 			});
 
@@ -248,8 +248,6 @@ class RepositoryTest extends TestCase {
 				["id", true],
 				["firstName", true],
 				["lastName", true],
-				["coursesAssigned_TODO_JUNCTION_TABLE", true],
-				["coursesAssigned", false],
 			]);
 		$rowTeacher->method("get")
 			->willReturnMap([
@@ -261,9 +259,21 @@ class RepositoryTest extends TestCase {
 		$rowCourse1 = self::createStub(Row::class);
 		$rowCourse1->method("get")->willReturn("COURSE_FIRST");
 		$rowCourse2 = self::createStub(Row::class);
-		$rowCourse2->method("get")->willReturn("COURSE_SECOND");
+		$rowCourse2->method("get")->willReturn("COURSE_FIRST");
 		$rowCourse3 = self::createStub(Row::class);
-		$rowCourse3->method("get")->willReturn("COURSE_THIRD");
+		$rowCourse3->method("get")->willReturn("COURSE_SECOND");
+
+		$rowCourseDetails = self::createStub(Row::class);
+		$rowCourseDetails->method("contains")->willReturnMap([
+			["id", true],
+			["title", true],
+			["department_Department_id", false],
+			["parent_Course_id", false],
+		]);
+		$rowCourseDetails->method("get")->willReturnMap([
+			["id", "COURSE_FIRST"],
+			["title", "First course"],
+		]);
 
 		$resultSetDepartment = self::createMock(ResultSet::class);
 		$resultSetDepartment->expects(self::once())
@@ -283,15 +293,34 @@ class RepositoryTest extends TestCase {
 				$rowCourse2,
 				$rowCourse3,
 			);
+		$resultSetCourseDetails = self::createMock(ResultSet::class);
+		$resultSetCourseDetails->expects(self::once())
+			->method("fetch")
+			->willReturn($rowCourseDetails);
 
 		$database = self::createMock(Database::class);
-		$database->expects(self::exactly(3))
+		$database->expects(self::exactly(4))
 			->method("executeSql")
-			->willReturnOnConsecutiveCalls(
+			->willReturnCallback(function(string $query, array $args)use(
 				$resultSetDepartment,
 				$resultSetTeacher,
 				$resultSetCourse,
-			);
+				$resultSetCourseDetails,
+			) {
+				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
+				return match($query) {
+					"select id, name, headOfDepartment_Teacher_id from Department where id = :id" => $resultSetDepartment,
+					"select id, firstName, lastName from Teacher where id = :id" => $resultSetTeacher,
+					"select Course_id from Teacher_coursesAssigned_Course where Teacher_id = :Teacher_id order by id" => $this->junctionResult(
+						$args,
+						$resultSetCourse,
+					),
+					"select id, title, department_Department_id, parent_Course_id from Course where id = :id" => $this->courseResult(
+						$args,
+						$resultSetCourseDetails,
+					),
+				};
+			});
 
 		$sut = new UniversityRepository($database);
 		$department = $sut->fetch(Department::class, 12345);
@@ -299,7 +328,20 @@ class RepositoryTest extends TestCase {
 		$headOfDepartment = $department->headOfDepartment;
 		self::assertCount(3, $headOfDepartment->coursesAssigned);
 		self::assertSame("COURSE_FIRST", $headOfDepartment->coursesAssigned[0]->id);
-		self::assertSame("COURSE_SECOND", $headOfDepartment->coursesAssigned[1]->id);
-		self::assertSame("COURSE_THIRD", $headOfDepartment->coursesAssigned[2]->id);
+		self::assertSame("COURSE_FIRST", $headOfDepartment->coursesAssigned[1]->id);
+		self::assertSame("COURSE_SECOND", $headOfDepartment->coursesAssigned[2]->id);
+		self::assertSame("First course", $headOfDepartment->coursesAssigned[0]->title);
+	}
+
+	/** @return ResultSet */
+	private function junctionResult(array $args, ResultSet $resultSet):ResultSet {
+		self::assertSame(["Teacher_id" => "TEACHER_JOHN"], $args);
+		return $resultSet;
+	}
+
+	/** @return ResultSet */
+	private function courseResult(array $args, ResultSet $resultSet):ResultSet {
+		self::assertSame(["id" => "COURSE_FIRST"], $args);
+		return $resultSet;
 	}
 }

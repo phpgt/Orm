@@ -60,8 +60,8 @@ Some questions I need to answer before I go any further:
 - How should the `DateTime` class be cast back and forth between different database engines? MySQL has a `datetime` type, but SQLite has to use a timestamp.
 - Primary keys and generated integer identities can be declared directly on a property with `#[PrimaryKey]` or `#[AutoIncrementPrimaryKey]`.
 - Straight-up foreign keys should be easy to implement - use a class as a public property.
-- A common OOP technique is to have an array/iterable of objects. For example, the `Lesson` class can have an `array<Student>` or a custom `StudentCollection` class.
-- This means a `StudentCollection` must be a differently derived class than `Student`, as it represents a junction table.
+- Entity collections extend `GT\Orm\Collection` and declare their item type with an `@extends` PHPDoc tag. The ORM represents each collection with a junction table.
+- Generated junction tables have their own auto-incrementing ID and do not prevent the same entity pair from appearing more than once.
 
 One big question I have yet to prototype:
 

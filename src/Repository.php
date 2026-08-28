@@ -89,6 +89,9 @@ class Repository {
 		$columnList = [];
 		$metadata = $this->metadataFactory->get($entityClassName);
 		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			if($propertyMetadata->getKind() === PropertyKind::COLLECTION) {
+				continue;
+			}
 			array_push(
 				$columnList,
 				$this->getColumnName($propertyMetadata),
@@ -134,6 +137,11 @@ class Repository {
 		PropertyMetadata $metadata,
 		array $rowValues,
 	):void {
+		if($metadata->getKind() === PropertyKind::COLLECTION) {
+			$this->handleLazyCollectionProperty($instance, $metadata);
+			return;
+		}
+
 		$columnName = $this->getColumnName($metadata);
 		if(!array_key_exists($columnName, $rowValues)) {
 			return;
@@ -148,14 +156,6 @@ class Repository {
 				$instance,
 				$metadata,
 				$rowValues[$columnName],
-			);
-			return;
-		}
-
-		if($metadata->getKind() === PropertyKind::COLLECTION) {
-			$this->handleLazyCollectionProperty(
-				$instance,
-				$metadata,
 			);
 			return;
 		}
@@ -192,42 +192,67 @@ class Repository {
 			return;
 		}
 
-		$foreignMetadata = $this->metadataFactory->get($metadata->getTypeName());
-		$typeName = $foreignMetadata->getClassName();
-		$refClassForeign = new ReflectionClass($typeName);
-		$lazyGhost = $refClassForeign->newLazyGhost(
-			function(object $ghost) use ($foreignMetadata, $typeName, $foreignPrimaryKeyValue) {
-				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
-				foreach($foreignMetadata->getPropertyList() as $propertyMetadata) {
-					$refProperty = $propertyMetadata->getProperty();
-					if(!$refProperty->isInitialized($referencedEntity)) {
-						continue;
-					}
-
-					$value = $refProperty->getValue($referencedEntity);
-					$refProperty->setValue($ghost, $value);
-				}
-			}
+		$metadata->getProperty()->setValue(
+			$instance,
+			$this->createLazyEntityReference(
+				$metadata->getTypeName(),
+				$foreignPrimaryKeyValue,
+			),
 		);
-
-		$metadata->getProperty()->setValue($instance, $lazyGhost);
 	}
 
 	private function handleLazyCollectionProperty(
 		object $instance,
 		PropertyMetadata $metadata,
 	):void {
-		$typeName = $metadata->getTypeName();
-		$refClassCollection = new ReflectionClass($typeName);
-		$itemClassName = $this->inferCollectionItemClassName($typeName);
+		if($metadata->getProperty()->isInitialized($instance)) {
+			return;
+		}
+
+		$collectionClassName = $metadata->getTypeName();
+		$itemClassName = $metadata->getCollectionItemClassName();
+		$refClassCollection = new ReflectionClass($collectionClassName);
 
 		$lazyGhost = $refClassCollection->newLazyGhost(
-			function(object $ghost) use ($refClassCollection, $typeName, $itemClassName) {
+			function(object $ghost) use (
+				$instance,
+				$metadata,
+				$refClassCollection,
+				$collectionClassName,
+				$itemClassName,
+			) {
+				$ownerMetadata = $this->metadataFactory->get($instance);
+				$ownerPrimaryKey = $ownerMetadata->requirePrimaryKey();
+				$itemMetadata = $this->metadataFactory->get($itemClassName);
+				$itemPrimaryKey = $itemMetadata->requirePrimaryKey();
+				$junctionTable = $this->columnName->junctionTable(
+					$ownerMetadata->getTableName(),
+					$metadata->getName(),
+					$itemMetadata->getTableName(),
+				);
+				$ownerColumn = $this->columnName->junctionForeignKey(
+					$ownerMetadata->getTableName(),
+					$ownerPrimaryKey->getName(),
+				);
+				$itemColumn = $this->columnName->junctionItemForeignKey(
+					$ownerMetadata->getTableName(),
+					$ownerPrimaryKey->getName(),
+					$metadata->getName(),
+					$itemMetadata->getTableName(),
+					$itemPrimaryKey->getName(),
+				);
 				$builder = new SelectBuilder();
-				$builder->from($this->getTableName($itemClassName))
-					->select($this->getPrimaryKey($itemClassName));
+				$builder->from($junctionTable)
+					->select($itemColumn)
+					->where("$ownerColumn = :$ownerColumn")
+					->orderBy("id");
 
-				$resultSet = $this->database->executeSql((string)$builder, []);
+				$ownerPrimaryKeyValue = $ownerPrimaryKey->getProperty()
+					->getValue($instance);
+				$resultSet = $this->database->executeSql(
+					(string)$builder,
+					[$ownerColumn => $ownerPrimaryKeyValue],
+				);
 				$itemList = [];
 				while(true) {
 					try {
@@ -241,10 +266,13 @@ class Repository {
 						break;
 					}
 
-					$itemList[] = $this->rowToPartialEntity($row, $itemClassName);
+					$itemList[] = $this->createLazyEntityReference(
+						$itemClassName,
+						$itemPrimaryKey->fromDatabase($row->get($itemColumn)),
+					);
 				}
 
-				$collection = new $typeName($itemList);
+				$collection = new $collectionClassName($itemList);
 				foreach($refClassCollection->getProperties() as $collectionProperty) {
 					if(!$collectionProperty->isInitialized($collection)) {
 						continue;
@@ -259,9 +287,6 @@ class Repository {
 	}
 
 	private function getColumnName(PropertyMetadata $metadata):string {
-		if($metadata->getKind() === PropertyKind::COLLECTION) {
-			return $this->columnName->junctionPlaceholder($metadata->getName());
-		}
 		if($metadata->getKind() !== PropertyKind::ENTITY) {
 			return $metadata->getName();
 		}
@@ -274,26 +299,38 @@ class Repository {
 		);
 	}
 
-	private function inferCollectionItemClassName(string $collectionClassName):string {
-		$namespace = substr($collectionClassName, 0, (int)strrpos($collectionClassName, "\\"));
-		$shortName = substr($collectionClassName, (int)strrpos($collectionClassName, "\\") + 1);
+	/**
+	 * @param class-string $className
+	 */
+	private function createLazyEntityReference(
+		string $className,
+		int|string $primaryKeyValue,
+	):object {
+		$metadata = $this->metadataFactory->get($className);
+		$primaryKey = $metadata->requirePrimaryKey();
+		$refClass = new ReflectionClass($className);
+		$lazyGhost = $refClass->newLazyGhost(
+			function(object $ghost) use ($className, $metadata, $primaryKeyValue) {
+				$entity = $this->fetch($className, $primaryKeyValue);
+				foreach($metadata->getPropertyList() as $propertyMetadata) {
+					$property = $propertyMetadata->getProperty();
+					if($property->isInitialized($ghost)
+						|| !$property->isInitialized($entity)) {
+						continue;
+					}
 
-		if(str_ends_with($shortName, "List")) {
-			return $namespace . "\\" . substr($shortName, 0, -4);
-		}
-
-		return $collectionClassName;
-	}
-
-	private function rowToPartialEntity(Row $row, string $className):object {
-		$entity = (new ReflectionClass($className))->newInstanceWithoutConstructor();
-		$primaryKey = $this->metadataFactory->get($className)->requirePrimaryKey();
-		$primaryKey->getProperty()->setValue(
-			$entity,
-			$primaryKey->fromDatabase($row->get($primaryKey->getName())),
+					$property->setValue($ghost, $property->getValue($entity));
+				}
+			},
+		);
+		$primaryKeyProperty = $primaryKey->getProperty();
+		$primaryKeyProperty->skipLazyInitialization($lazyGhost);
+		$primaryKeyProperty->setRawValueWithoutLazyInitialization(
+			$lazyGhost,
+			$primaryKeyValue,
 		);
 
-		return $entity;
+		return $lazyGhost;
 	}
 
 	private function rowContains(Row $row, string $propertyName):bool {
