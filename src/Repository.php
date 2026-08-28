@@ -1,22 +1,28 @@
 <?php
 namespace GT\Orm;
 
-use DateTimeInterface;
 use GT\Database\Database;
 use GT\Database\Result\Row;
+use GT\Orm\Metadata\ColumnName;
+use GT\Orm\Metadata\EntityMetadataFactory;
+use GT\Orm\Metadata\PropertyKind;
+use GT\Orm\Metadata\PropertyMetadata;
 use GT\SqlBuilder\Condition\Condition;
 use GT\SqlBuilder\SelectBuilder;
 use ReflectionClass;
-use ReflectionNamedType;
-use ReflectionProperty;
 
 class Repository {
 	/** @var array<class-string, array<int|string, object>> */
 	private array $entityCache = [];
+	private EntityMetadataFactory $metadataFactory;
+	private ColumnName $columnName;
 
 	public function __construct(
 		protected Database $database,
+		?EntityMetadataFactory $metadataFactory = null,
 	) {
+		$this->metadataFactory = $metadataFactory ?? new EntityMetadataFactory();
+		$this->columnName = new ColumnName();
 	}
 
 	/**
@@ -54,7 +60,7 @@ class Repository {
 		$builder = new SelectBuilder();
 		$builder->from($this->getTableName($className))
 			->select(...$this->getColumnList($className))
-			->where("id = :id");
+			->where("$primaryKey = :$primaryKey");
 
 		$resultSet = $this->database->executeSql((string)$builder, $parameters);
 		$row = $resultSet->fetch();
@@ -68,53 +74,25 @@ class Repository {
 	}
 
 	public function getTableName(string $entityClassName):string {
-		return (new ReflectionClass($entityClassName))->getShortName();
+		return $this->metadataFactory->get($entityClassName)->getTableName();
 	}
 
-	/**
-	 * @SuppressWarnings("PHPMD.UnusedFormalParameter")
-	 * @param object|class-string $entity
-	 */
-	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Reserved for primary-key detection.
+	/** @param object|class-string $entity */
 	private function getPrimaryKey(object|string $entity):string {
-		// TODO: How do we detect primary keys that are not called "id"?
-		return "id";
+		return $this->metadataFactory->get($entity)
+			->requirePrimaryKey()
+			->getName();
 	}
 
 	/** @return array<string> */
 	public function getColumnList(string $entityClassName):array {
 		$columnList = [];
-
-		$refClass = new ReflectionClass($entityClassName);
-		foreach($refClass->getProperties() as $refProperty) {
-			if(!$refProperty->isPublic()) {
-				continue;
-			}
-			if(!$refProperty->hasType()) {
-				continue;
-			}
-
-			$name = $refProperty->getName();
-			$refType = $refProperty->getType();
-			assert($refType instanceof ReflectionNamedType);
-
-			if($refType->isBuiltin()) {
-				array_push($columnList, $name);
-				continue;
-			}
-
-			$type = $refType->getName();
-			if(
-				is_a($type, DateTimeInterface::class, true)
-				|| is_a($type, "Stringable", true)
-			) {
-				array_push($columnList, $name);
-				continue;
-			}
-
-			$referencedPrimaryKey = $this->getPrimaryKey($type);
-			$referencedTableName = $this->getTableName($type);
-			array_push($columnList, $this->buildForeignKey($name, $referencedTableName, $referencedPrimaryKey));
+		$metadata = $this->metadataFactory->get($entityClassName);
+		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			array_push(
+				$columnList,
+				$this->getColumnName($propertyMetadata),
+			);
 		}
 
 		return $columnList;
@@ -128,40 +106,23 @@ class Repository {
 	 */
 	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
 		$refClass = new ReflectionClass($className);
+		$metadata = $this->metadataFactory->get($className);
 
 		if($instance === null) {
 			$instance = $refClass->newInstanceWithoutConstructor();
 		}
 
-		$refPropertyArray = $refClass->getProperties(
-			ReflectionProperty::IS_PUBLIC,
-		);
-
 		$rowValues = [];
-		foreach($refPropertyArray as $refProperty) {
-			$refType = $refProperty->getType();
-			assert($refType instanceof ReflectionNamedType);
-			$refTypeName = $refType->getName();
-			$propertyName = $refProperty->getName();
-			if(class_exists($refTypeName)) {
-				if(is_subclass_of($refTypeName, \Traversable::class)) {
-					$propertyName = $this->buildJunctionPlaceholderKey($propertyName);
-				}
-				else {
-					$foreignTableName = $this->getTableName($refTypeName);
-					$foreignPrimaryKey = $this->getPrimaryKey($refTypeName);
-					$propertyName = $this->buildForeignKey($propertyName, $foreignTableName, $foreignPrimaryKey);
-				}
-			}
-
-			if(!$this->rowContains($row, $propertyName)) {
+		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			$columnName = $this->getColumnName($propertyMetadata);
+			if(!$this->rowContains($row, $columnName)) {
 				continue;
 			}
-			$rowValues[$propertyName] = $row->get($propertyName);
+			$rowValues[$columnName] = $row->get($columnName);
 		}
 
-		foreach($refPropertyArray as $refProperty) {
-			$this->hydrateProperty($instance, $refProperty, $rowValues);
+		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			$this->hydrateProperty($instance, $propertyMetadata, $rowValues);
 		}
 
 		return $instance;
@@ -170,94 +131,75 @@ class Repository {
 	/** @param array<string, mixed> $rowValues */
 	private function hydrateProperty(
 		object $instance,
-		ReflectionProperty $refProperty,
+		PropertyMetadata $metadata,
 		array $rowValues,
 	):void {
-		$propertyName = $refProperty->getName();
-		if(isset($rowValues[$propertyName])) {
+		$columnName = $this->getColumnName($metadata);
+		if(!array_key_exists($columnName, $rowValues)) {
+			return;
+		}
+
+		if(in_array($metadata->getKind(), [
+			PropertyKind::SCALAR,
+			PropertyKind::DATE_TIME,
+			PropertyKind::BACKED_ENUM,
+		], true)) {
 			$this->setInstanceProperty(
 				$instance,
-				$refProperty,
-				$rowValues[$propertyName],
+				$metadata,
+				$rowValues[$columnName],
 			);
 			return;
 		}
 
-		$refType = $refProperty->getType();
-		assert($refType instanceof ReflectionNamedType);
-		$foreignPropertyType = $refType->getName();
-		if(!class_exists($foreignPropertyType)) {
-			return;
-		}
-
-		if(is_subclass_of($foreignPropertyType, \Traversable::class)) {
-			$columnName = $this->buildJunctionPlaceholderKey($propertyName);
-			if(!array_key_exists($columnName, $rowValues)) {
-				return;
-			}
-
+		if($metadata->getKind() === PropertyKind::COLLECTION) {
 			$this->handleLazyCollectionProperty(
 				$instance,
-				$refProperty,
-				$foreignPropertyType,
+				$metadata,
 			);
 			return;
 		}
 
-		$foreignTableName = $this->getTableName($foreignPropertyType);
-		$foreignPrimaryKey = $this->getPrimaryKey($foreignPropertyType);
-		$columnName = $this->buildForeignKey(
-			$propertyName,
-			$foreignTableName,
-			$foreignPrimaryKey,
-		);
-
-		if(!isset($rowValues[$columnName])) {
+		$foreignPrimaryKeyValue = $rowValues[$columnName];
+		if($foreignPrimaryKeyValue === null) {
 			return;
 		}
 
 		$this->handleLazyInstanceProperty(
 			$instance,
-			$refProperty,
-			$foreignPropertyType,
-			$rowValues[$columnName],
+			$metadata,
+			$foreignPrimaryKeyValue,
 		);
 	}
 
 	private function setInstanceProperty(
 		object $instance,
-		ReflectionProperty $refProperty,
-		string $value,
+		PropertyMetadata $metadata,
+		?string $value,
 	):void {
-		$refType = $refProperty->getType();
-		assert($refType instanceof ReflectionNamedType);
-		if(!$refType->isBuiltin()) {
-			$typeName = $refType->getName();
-
-			if(is_subclass_of($typeName, DateTimeInterface::class) || $typeName === DateTimeInterface::class) {
-				$value = new $typeName($value);
-			}
-		}
-
-		$refProperty->setValue($instance, $value);
+		$metadata->getProperty()->setValue(
+			$instance,
+			$metadata->fromDatabase($value),
+		);
 	}
 
-	/** @param class-string $typeName */
 	private function handleLazyInstanceProperty(
 		object $instance,
-		ReflectionProperty $refProperty,
-		string $typeName,
+		PropertyMetadata $metadata,
 		null|int|string $foreignPrimaryKeyValue,
 	):void {
 		if(is_null($foreignPrimaryKeyValue)) {
 			return;
 		}
 
+		$foreignMetadata = $this->metadataFactory->get($metadata->getTypeName());
+		$typeName = $foreignMetadata->getClassName();
 		$refClassForeign = new ReflectionClass($typeName);
 		$lazyGhost = $refClassForeign->newLazyGhost(
-			function(object $ghost) use ($refClassForeign, $typeName, $foreignPrimaryKeyValue) {
+			function(object $ghost) use ($foreignMetadata, $typeName, $foreignPrimaryKeyValue) {
 				$referencedEntity = $this->fetch($typeName, $foreignPrimaryKeyValue);
-				foreach($refClassForeign->getProperties(ReflectionProperty::IS_PUBLIC) as $refProperty) {
+				foreach($foreignMetadata->getPropertyList() as $propertyMetadata) {
+					$refProperty = $propertyMetadata->getProperty();
 					if(!$refProperty->isInitialized($referencedEntity)) {
 						continue;
 					}
@@ -268,14 +210,14 @@ class Repository {
 			}
 		);
 
-		$refProperty->setValue($instance, $lazyGhost);
+		$metadata->getProperty()->setValue($instance, $lazyGhost);
 	}
 
 	private function handleLazyCollectionProperty(
 		object $instance,
-		ReflectionProperty $refProperty,
-		string $typeName,
+		PropertyMetadata $metadata,
 	):void {
+		$typeName = $metadata->getTypeName();
 		$refClassCollection = new ReflectionClass($typeName);
 		$itemClassName = $this->inferCollectionItemClassName($typeName);
 
@@ -313,28 +255,23 @@ class Repository {
 			}
 		);
 
-		$refProperty->setValue($instance, $lazyGhost);
+		$metadata->getProperty()->setValue($instance, $lazyGhost);
 	}
 
-	private function buildForeignKey(
-		string $propertyName,
-		string $foreignTableName,
-		string $foreignPrimaryKey,
-	):string {
-		return implode("_", [
-			$propertyName,
-			$foreignTableName,
-			$foreignPrimaryKey,
-		]);
-	}
+	private function getColumnName(PropertyMetadata $metadata):string {
+		if($metadata->getKind() === PropertyKind::COLLECTION) {
+			return $this->columnName->junctionPlaceholder($metadata->getName());
+		}
+		if($metadata->getKind() !== PropertyKind::ENTITY) {
+			return $metadata->getName();
+		}
 
-	private function buildJunctionPlaceholderKey(string $propertyName):string {
-		return implode("_", [
-			$propertyName,
-			"TODO",
-			"JUNCTION",
-			"TABLE",
-		]);
+		$foreignMetadata = $this->metadataFactory->get($metadata->getTypeName());
+		return $this->columnName->foreignKey(
+			$metadata->getName(),
+			$foreignMetadata->getTableName(),
+			$foreignMetadata->requirePrimaryKey()->getName(),
+		);
 	}
 
 	private function inferCollectionItemClassName(string $collectionClassName):string {
@@ -350,9 +287,11 @@ class Repository {
 
 	private function rowToPartialEntity(Row $row, string $className):object {
 		$entity = (new ReflectionClass($className))->newInstanceWithoutConstructor();
-		$primaryKey = $this->getPrimaryKey($className);
-		$property = new ReflectionProperty($className, $primaryKey);
-		$property->setValue($entity, $row->get($primaryKey));
+		$primaryKey = $this->metadataFactory->get($className)->requirePrimaryKey();
+		$primaryKey->getProperty()->setValue(
+			$entity,
+			$primaryKey->fromDatabase($row->get($primaryKey->getName())),
+		);
 
 		return $entity;
 	}

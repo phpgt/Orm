@@ -2,11 +2,15 @@
 namespace GT\Orm\Test\Migration;
 
 use DateTime;
+use GT\Orm\Migration\Query\SchemaQueryMySQL;
+use GT\Orm\Migration\Query\SchemaQuerySQLite;
 use GT\Orm\Migration\SchemaGenerator;
+use GT\Orm\Test\SQLTestCase;
 use GT\Orm\Test\TestProject\EntityDetectorTest\SimpleEntitiesAndNonEntities\PersonEntity;
-use PHPUnit\Framework\TestCase;
+use GT\Orm\Test\TestProject\Metadata\AutoIncrementEntity;
+use GT\Orm\Test\TestProject\Metadata\DefaultValueEntity;
 
-class SchemaGeneratorTest extends TestCase {
+class SchemaGeneratorTest extends SQLTestCase {
 	public function testGenerate():void {
 		$sut = new SchemaGenerator();
 		$schemaTable = $sut->generate(PersonEntity::class);
@@ -21,7 +25,7 @@ class SchemaGeneratorTest extends TestCase {
 		self::assertSame("string", $schemaFields[1]->getType());
 		self::assertSame("createdAt", $schemaFields[2]->getName());
 		self::assertSame(DateTime::class, $schemaFields[2]->getType());
-		self::assertInstanceOf(DateTime::class, $schemaFields[2]->getDefaultValue());
+		self::assertFalse($schemaFields[2]->hasDefaultValue());
 	}
 
 	public function testGenerate_object():void {
@@ -44,7 +48,7 @@ class SchemaGeneratorTest extends TestCase {
 		self::assertSame("string", $schemaFields[1]->getType());
 	}
 
-	public function testGenerate_objectWithDefaultConstructorParams():void {
+	public function testGenerate_phpConstructorDefaultIsNotSqlDefault():void {
 		$sut = new SchemaGenerator();
 		$schemaTable = $sut->generate(new class(123, "Test Name") {
 			public function __construct(
@@ -54,10 +58,10 @@ class SchemaGeneratorTest extends TestCase {
 		});
 
 		$schemaFields = $schemaTable->getFieldList();
-		self::assertSame("UNKNOWN", $schemaFields[1]->getDefaultValue());
+		self::assertFalse($schemaFields[1]->hasDefaultValue());
 	}
 
-	public function testGenerate_objectWithDefaultProperty():void {
+	public function testGenerate_phpPropertyDefaultIsNotSqlDefault():void {
 		$sut = new SchemaGenerator();
 		$schemaTable = $sut->generate(new class(123, "Test Name") {
 			public string $searchKey = "TEST_KEY";
@@ -70,7 +74,66 @@ class SchemaGeneratorTest extends TestCase {
 
 		$schemaFields = $schemaTable->getFieldList();
 		self::assertCount(3, $schemaFields);
-		self::assertSame("searchKey", $schemaFields[2]->getName());
-		self::assertSame("TEST_KEY", $schemaFields[2]->getDefaultValue());
+		self::assertSame("searchKey", $schemaFields[0]->getName());
+		self::assertFalse($schemaFields[0]->hasDefaultValue());
+	}
+
+	public function testGenerate_explicitSqlDefaults():void {
+		$table = (new SchemaGenerator())->generate(DefaultValueEntity::class);
+		$fieldList = $table->getFieldList();
+
+		self::assertFalse($fieldList[0]->hasDefaultValue());
+		self::assertSame("O'Reilly", $fieldList[1]->getDefaultValue());
+		self::assertTrue($fieldList[2]->hasDefaultValue());
+		self::assertNull($fieldList[2]->getDefaultValue());
+
+		$expected = <<<SQL
+		create table `DefaultValueEntity` (
+			`id` integer not null primary key,
+			`name` text not null default 'O''Reilly',
+			`description` text null default null
+		)
+		SQL;
+
+		self::assertSameSQL(
+			$expected,
+			(new SchemaQuerySQLite($table))->generateSql(),
+		);
+	}
+
+	public function testGenerate_autoIncrementAndDateTimeAcrossPlatforms():void {
+		$table = (new SchemaGenerator())->generate(AutoIncrementEntity::class);
+		$fieldList = $table->getFieldList();
+
+		self::assertSame("id", $table->getPrimaryKey()->getName());
+		self::assertTrue($table->getPrimaryKey()->isAutoIncrement());
+		self::assertSame("pending", $fieldList[2]->getDefaultValue());
+		self::assertFalse($fieldList[3]->hasDefaultValue());
+
+		$expectedSqlite = <<<SQL
+		create table `AutoIncrementEntity` (
+			`id` integer not null primary key autoincrement,
+			`name` text not null,
+			`status` text not null default 'pending',
+			`createdAt` text not null
+		)
+		SQL;
+		self::assertSameSQL(
+			$expectedSqlite,
+			(new SchemaQuerySQLite($table))->generateSql(),
+		);
+
+		$expectedMySql = <<<SQL
+		create table `AutoIncrementEntity` (
+			`id` int not null primary key auto_increment,
+			`name` text not null,
+			`status` text not null default 'pending',
+			`createdAt` datetime(6) not null
+		)
+		SQL;
+		self::assertSameSQL(
+			$expectedMySql,
+			(new SchemaQueryMySQL($table))->generateSql(),
+		);
 	}
 }

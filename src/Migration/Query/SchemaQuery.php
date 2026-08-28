@@ -84,7 +84,7 @@ abstract class SchemaQuery {
 		);
 
 		$defaultInjection = $field->hasDefaultValue()
-			? "default " . $field->getDefaultValue()
+			? "default " . $this->quote($field->getDefaultValue())
 			: "";
 		$constraintSql = $this->inject(
 			$constraintSql,
@@ -137,13 +137,13 @@ abstract class SchemaQuery {
 		return $constraintSql;
 	}
 
-	protected function quote(bool|int|float|string $value):string {
-		if(is_string($value)) {
-			$value = str_replace("'", "\'", $value);
-			$value = "'$value'";
-		}
-
-		return $value;
+	protected function quote(bool|int|float|string|null $value):string {
+		return match(true) {
+			$value === null => "null",
+			is_bool($value) => $value ? "true" : "false",
+			is_string($value) => "'" . str_replace("'", "''", $value) . "'",
+			default => (string)$value,
+		};
 	}
 
 	abstract protected function type(string $type):string;

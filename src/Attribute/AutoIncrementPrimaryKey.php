@@ -4,4 +4,4 @@ namespace GT\Orm\Attribute;
 use Attribute;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
-readonly class PrimaryKey {}
+readonly class AutoIncrementPrimaryKey {}

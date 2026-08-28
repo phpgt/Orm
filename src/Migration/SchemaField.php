@@ -4,6 +4,7 @@ namespace GT\Orm\Migration;
 class SchemaField {
 	private string $type;
 	private bool $nullable;
+	private bool $hasDefaultValue = false;
 	private mixed $defaultValue;
 	private bool $autoIncrement;
 	private string $foreignKeyReferenceTable;
@@ -35,10 +36,11 @@ class SchemaField {
 	}
 
 	public function hasDefaultValue():bool {
-		return isset($this->defaultValue);
+		return $this->hasDefaultValue;
 	}
 
 	public function setDefaultValue(mixed $defaultValue):void {
+		$this->hasDefaultValue = true;
 		$this->defaultValue = $defaultValue;
 	}
 

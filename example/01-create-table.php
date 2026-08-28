@@ -1,5 +1,5 @@
 <?php
-use GT\Orm\Attribute\PrimaryKey;
+use GT\Orm\Attribute\AutoIncrementPrimaryKey;
 use GT\Orm\Migration\Query\SchemaQuerySQLite;
 use GT\Orm\Migration\SchemaGenerator;
 use GT\Orm\Migration\SchemaTable;
@@ -10,19 +10,21 @@ require(__DIR__ . "/../vendor/autoload.php");
 // - The Student class represents an individual student
 // - The Lesson class represents a lesson, which is assigned an array of Students.
 
-#[PrimaryKey("id", PrimaryKey::AUTOINCREMENT)]
 readonly class Student {
+	#[AutoIncrementPrimaryKey]
+	public int $id;
+
 	public function __construct(
-		public int $id,
 		public string $name,
 		public DateTime $dob,
 	) {}
 }
 
-#[PrimaryKey("id", PrimaryKey::AUTOINCREMENT)]
 readonly class Lesson {
+	#[AutoIncrementPrimaryKey]
+	public int $id;
+
 	public function __construct(
-		public int $id,
 		public string $name,
 //		public StudentCollection $students,
 	) {

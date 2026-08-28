@@ -5,6 +5,7 @@ use GT\Orm\Entity;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RecursiveRegexIterator;
+use ReflectionClass;
 use RegexIterator;
 
 class EntityDetector {
@@ -15,6 +16,7 @@ class EntityDetector {
 		string $dir,
 		string $tableClass = Entity::class,
 	):array {
+		$realDirectory = realpath($dir);
 		$phpFileIterator = new RegexIterator(
 			new RecursiveIteratorIterator(
 				new RecursiveDirectoryIterator($dir)
@@ -34,15 +36,32 @@ class EntityDetector {
 				continue;
 			}
 
-			if(is_a($className, $tableClass, true)) {
-				array_push(
-					$declaredTableClassList,
-					$className,
-				);
+			if(!is_a($className, $tableClass, true)) {
+				continue;
 			}
+
+			$classFile = (new ReflectionClass($className))->getFileName();
+			if(!$this->isWithinDirectory($classFile, $realDirectory)) {
+				continue;
+			}
+
+			array_push($declaredTableClassList, $className);
 		}
 
 		return $declaredTableClassList;
+	}
+
+	private function isWithinDirectory(
+		string|false $file,
+		string|false $directory,
+	):bool {
+		if($file === false || $directory === false) {
+			return false;
+		}
+
+		$realFile = realpath($file);
+		return $realFile !== false
+			&& str_starts_with($realFile, $directory . DIRECTORY_SEPARATOR);
 	}
 
 }

@@ -1,6 +1,7 @@
 <?php
 namespace GT\Orm\Test;
 
+use DateTimeImmutable;
 use Gt\Database\Database;
 use Gt\Database\Result\ResultSet;
 use Gt\Database\Result\Row;
@@ -8,10 +9,89 @@ use GT\Orm\Repository;
 use GT\Orm\Test\TestProject\ForeignKeys\University\Department;
 use GT\Orm\Test\TestProject\ForeignKeys\University\Student;
 use GT\Orm\Test\TestProject\ForeignKeys\University\UniversityRepository;
+use GT\Orm\Test\TestProject\Metadata\CustomPrimaryKeyEntity;
+use GT\Orm\Test\TestProject\Metadata\EntityStatus;
+use GT\Orm\Test\TestProject\Metadata\EnumEntity;
+use GT\Orm\Test\TestProject\Metadata\TemporalEntity;
 use Gt\SqlBuilder\SelectBuilder;
 use PHPUnit\Framework\TestCase;
 
 class RepositoryTest extends TestCase {
+	public function testFetch_customPrimaryKey():void {
+		$row = self::createStub(Row::class);
+		$row->method("contains")->willReturn(true);
+		$row->method("get")->willReturnMap([
+			["code", "PERSON_ONE"],
+			["name", "Ada"],
+		]);
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())->method("fetch")->willReturn($row);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturnCallback(function(string $query, array $args)use($resultSet) {
+				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
+				self::assertSame(
+					"select code, name from CustomPrimaryKeyEntity where code = :code",
+					$query,
+				);
+				self::assertSame(["code" => "PERSON_ONE"], $args);
+				return $resultSet;
+			});
+
+		$entity = (new Repository($database))->fetch(
+			CustomPrimaryKeyEntity::class,
+			"PERSON_ONE",
+		);
+
+		self::assertSame("PERSON_ONE", $entity->code);
+		self::assertSame("Ada", $entity->name);
+	}
+
+	public function testFetch_nativeDateTime():void {
+		$row = self::createStub(Row::class);
+		$row->method("contains")->willReturn(true);
+		$row->method("get")->willReturnMap([
+			["id", "42"],
+			["createdAt", "2026-08-26 12:34:56.123456+00:00"],
+		]);
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())->method("fetch")->willReturn($row);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturn($resultSet);
+
+		$entity = (new Repository($database))->fetch(TemporalEntity::class, 42);
+
+		self::assertSame(42, $entity->id);
+		self::assertInstanceOf(DateTimeImmutable::class, $entity->createdAt);
+		self::assertSame(
+			"2026-08-26 12:34:56.123456+00:00",
+			$entity->createdAt->format("Y-m-d H:i:s.uP"),
+		);
+	}
+
+	public function testFetch_backedEnum():void {
+		$row = self::createStub(Row::class);
+		$row->method("contains")->willReturn(true);
+		$row->method("get")->willReturnMap([
+			["id", "7"],
+			["status", "active"],
+		]);
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())->method("fetch")->willReturn($row);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturn($resultSet);
+
+		$entity = (new Repository($database))->fetch(EnumEntity::class, 7);
+
+		self::assertSame(7, $entity->id);
+		self::assertSame(EntityStatus::ACTIVE, $entity->status);
+	}
+
 	/**
 	 * This test ensures that when an entity class refers to another class,
 	 * the other class's table isn't queried if the property is not
@@ -122,7 +202,7 @@ class RepositoryTest extends TestCase {
 				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
 				return match($query) {
 					"select id, name, headOfDepartment_Teacher_id from Department where id = :id" => $resultSetDepartment,
-					"select id, firstName, lastName, coursesAssigned_CourseList_id from Teacher where id = :id" => $resultSetTeacher,
+					"select id, firstName, lastName, coursesAssigned_TODO_JUNCTION_TABLE from Teacher where id = :id" => $resultSetTeacher,
 				};
 			});
 

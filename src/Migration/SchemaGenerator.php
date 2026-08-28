@@ -1,109 +1,74 @@
 <?php
 namespace GT\Orm\Migration;
 
-use ReflectionClass;
-use ReflectionException;
-use ReflectionNamedType;
-use ReflectionProperty;
+use GT\Orm\Metadata\ColumnName;
+use GT\Orm\Metadata\EntityMetadataFactory;
+use GT\Orm\Metadata\PropertyKind;
+use GT\Orm\Metadata\PropertyMetadata;
 
 class SchemaGenerator {
+	private EntityMetadataFactory $metadataFactory;
+	private ColumnName $columnName;
+
+	public function __construct(?EntityMetadataFactory $metadataFactory = null) {
+		$this->metadataFactory = $metadataFactory ?? new EntityMetadataFactory();
+		$this->columnName = new ColumnName();
+	}
+
 	public function generate(object|string $class):SchemaTable {
-		$className = is_object($class) ? $class::class : $class;
-		$refClass = new ReflectionClass($className);
-		$tableName = $this->getTableName($className);
-		$table = new SchemaTable($tableName);
-		$fieldList = $this->generateFields($class, $refClass, $table);
+		$metadata = $this->metadataFactory->get($class);
+		$table = new SchemaTable($metadata->getTableName());
 
-		$refConstructor = $refClass->getMethod("__construct");
-		$promotedParams = array_filter(
-			$refConstructor->getParameters(),
-			fn($param) => $param->isPromoted()
-		);
-
-		foreach($promotedParams as $param) {
-			$paramName = $param->getName();
-			$field = $fieldList[$paramName];
-
-			try {
-				$default = $param->getDefaultValue();
-				$field->setDefaultValue($default);
-			} catch(ReflectionException) {
-				// Ignore fields without a default value.
+		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			if($propertyMetadata->getKind() === PropertyKind::COLLECTION) {
+				continue;
 			}
-		}
 
-		foreach($fieldList as $field) {
+			$field = $this->createField($propertyMetadata);
 			$table->addField($field);
+			if($propertyMetadata->isPrimaryKey()) {
+				$table->setPrimaryKey($field);
+			}
 		}
 
 		return $table;
 	}
 
-	private function getTableName(string $className):string {
-		$classNameOffset = strrpos($className, "\\");
-
-		if($classNameOffset) {
-			$classNameOffset += 1;
+	private function createField(PropertyMetadata $metadata):SchemaField {
+		if($metadata->getKind() === PropertyKind::ENTITY) {
+			$field = $this->createForeignKeyField($metadata);
 		}
 		else {
-			$classNameOffset = 0;
+			$field = new SchemaField($metadata->getName());
+			$field->setType($metadata->getStorageType());
 		}
 
-		return substr($className, $classNameOffset);
+		$field->setNullable($metadata->isNullable());
+		$field->setAutoIncrement($metadata->isAutoIncrement());
+		if($metadata->hasDefaultValue()) {
+			$field->setDefaultValue($metadata->getDefaultValue());
+		}
+
+		return $field;
 	}
 
-	/**
-	 * @param ReflectionClass<object> $refClass
-	 * @return array<string, SchemaField>
-	 */
-	private function generateFields(
-		object|string $class,
-		ReflectionClass $refClass,
-		SchemaTable $table,
-	):array {
-		$refPublicPropertyList = $refClass->getProperties(
-			ReflectionProperty::IS_PUBLIC
+	private function createForeignKeyField(
+		PropertyMetadata $metadata,
+	):SchemaField {
+		$foreignMetadata = $this->metadataFactory->get($metadata->getTypeName());
+		$foreignPrimaryKey = $foreignMetadata->requirePrimaryKey();
+		$fieldName = $this->columnName->foreignKey(
+			$metadata->getName(),
+			$foreignMetadata->getTableName(),
+			$foreignPrimaryKey->getName(),
 		);
-		usort(
-			$refPublicPropertyList,
-			fn(
-				ReflectionProperty $a,
-				ReflectionProperty $b
-			) => $b->isPromoted() && !$a->isPromoted()
-				? 1
-				: 0
+		$field = new SchemaField($fieldName);
+		$field->setType($foreignPrimaryKey->getStorageType());
+		$field->setForeignKeyReference(
+			$foreignMetadata->getTableName(),
+			$foreignPrimaryKey->getName(),
 		);
 
-		$fieldList = [];
-
-		foreach($refPublicPropertyList as $refProperty) {
-			$propertyName = $refProperty->getName();
-			$field = new SchemaField($propertyName);
-
-			if($propertyName === "id") {
-				$table->setPrimaryKey($field);
-			}
-
-			$refType = $refProperty->getType();
-			if($refType instanceof ReflectionNamedType) {
-				$typeName = $refType->getName();
-				$field->setType($typeName);
-			}
-			$field->setNullable($refType->allowsNull());
-
-			if($refProperty->hasDefaultValue()) {
-				$field->setDefaultValue($refProperty->getDefaultValue());
-			}
-			elseif(is_object($class)) {
-// TODO: Unit test this section - I'm not sure it needs to be here, and whether
-// we even need the $class variable at all.
-				$value = $refProperty->getValue($class);
-				$field->setDefaultValue($value);
-			}
-
-			$fieldList[$propertyName] = $field;
-		}
-
-		return $fieldList;
+		return $field;
 	}
 }

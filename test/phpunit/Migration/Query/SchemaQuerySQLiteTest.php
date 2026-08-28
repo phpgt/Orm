@@ -34,7 +34,7 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 
 		$expected = <<<SQL
 		create table `TestTable` (
-			`id` int not null primary key,
+			`id` integer not null primary key,
 			`name` text null
 		)
 		SQL;
@@ -72,7 +72,7 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 
 		$expectedSqlite = <<<SQL
 		create table `TestTable` (
-			`id` int not null primary key autoincrement,
+			`id` integer not null primary key autoincrement,
 			`name` text null
 		)
 		SQL;
