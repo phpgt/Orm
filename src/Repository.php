@@ -7,7 +7,7 @@ use GT\Orm\Metadata\ColumnName;
 use GT\Orm\Metadata\EntityMetadataFactory;
 use GT\Orm\Metadata\PropertyMetadata;
 use GT\Orm\Persistence\EntityWriter;
-use GT\Orm\Query\FetchQuery;
+use GT\Orm\Query\QueryFactory;
 use GT\SqlBuilder\Condition\Condition;
 
 class Repository {
@@ -16,6 +16,7 @@ class Repository {
 	private EntityMetadataFactory $metadataFactory;
 	private ColumnName $columnName;
 	private EntityWriter $entityWriter;
+	private QueryFactory $queryFactory;
 
 	public function __construct(
 		protected Database $database,
@@ -28,6 +29,7 @@ class Repository {
 			$this->metadataFactory,
 			$this->columnName,
 		);
+		$this->queryFactory = new QueryFactory();
 	}
 
 	/**
@@ -54,6 +56,32 @@ class Repository {
 	}
 
 	/**
+	 * Delete entities matching the given criteria.
+	 *
+	 * @param class-string<Entity> $className
+	 * @param int|string|Condition ...$match
+	 * @return int The number of deleted rows
+	 */
+	public function delete(
+		string $className,
+		int|string|Condition... $match,
+	):int {
+		$query = $this->queryFactory->delete();
+		$query->from($this->getTableName($className));
+		$query->match($this->getPrimaryKey($className), ...$match);
+		$deleted = $this->database->executeSql(
+			(string)$query,
+			$query->getParameters(),
+		)->affectedRows();
+
+		if($deleted > 0) {
+			unset($this->entityCache[$className]);
+		}
+
+		return $deleted;
+	}
+
+	/**
 	 * Fetch a single entity matching the given criteria.
 	 *
 	 * @template TFetchedEntity as Entity
@@ -74,7 +102,7 @@ class Repository {
 		string $className,
 		int|string|Condition... $match,
 	) {
-		$query = new FetchQuery();
+		$query = $this->queryFactory->select();
 		$query->from($this->getTableName($className))
 			->select(...$this->getColumnList($className));
 		$query->match($this->getPrimaryKey($className), ...$match);
@@ -261,7 +289,7 @@ class Repository {
 					$itemMetadata->getTableName(),
 					$itemPrimaryKey->getName(),
 				);
-				$builder = new FetchQuery();
+				$builder = $this->queryFactory->select();
 				$builder->from($junctionTable)
 					->select($itemColumn)
 					->where("$ownerColumn = :$ownerColumn")

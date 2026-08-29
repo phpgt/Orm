@@ -17,6 +17,8 @@ use GT\Orm\Test\TestProject\Persistence\StudentCollection;
 use GT\Orm\Test\TestProject\Persistence\StudentNote;
 use GT\Orm\Test\TestProject\Persistence\StudentStatus;
 use GT\Orm\Test\TestProject\Persistence\UninitialisedEntity;
+use GT\SqlBuilder\Condition\AndCondition;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -69,6 +71,79 @@ class RepositoryPersistenceTest extends TestCase {
 
 		self::assertSame(1, $first->id);
 		self::assertSame(2, $second->id);
+	}
+
+	public function testDeleteByPrimaryKey():void {
+		$entity = $this->repository->insert(
+			new ManualKeyEntity("known-key", "old value"),
+		);
+
+		self::assertSame(
+			1,
+			$this->repository->delete(ManualKeyEntity::class, "known-key"),
+		);
+		self::assertSame(0, $this->scalar(
+			"select count(*) from ManualKeyEntity",
+		));
+
+		$this->database->executeSql(
+			"insert into ManualKeyEntity (id, value) values (:id, :value)",
+			["id" => "known-key", "value" => "new value"],
+		);
+		$fetched = $this->repository->fetch(
+			ManualKeyEntity::class,
+			"known-key",
+		);
+		self::assertNotSame($entity, $fetched);
+		self::assertSame("new value", $fetched->value);
+	}
+
+	public function testDeleteByFieldValue():void {
+		$this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert($this->newStudent("Grace"));
+
+		self::assertSame(
+			1,
+			$this->repository->delete(Student::class, "name", "Ada"),
+		);
+		self::assertSame(
+			["Grace"],
+			array_column($this->rows("select name from Student"), "name"),
+		);
+	}
+
+	public function testDeleteByCondition():void {
+		$this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert($this->newStudent("Grace"));
+
+		self::assertSame(
+			1,
+			$this->repository->delete(
+				Student::class,
+				new AndCondition("name = 'Grace'"),
+			),
+		);
+		self::assertSame(
+			["Ada"],
+			array_column($this->rows("select name from Student"), "name"),
+		);
+	}
+
+	public function testDeleteRequiresMatch():void {
+		$this->repository->insert($this->newStudent("Ada"));
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessage(
+			"Delete requires at least one non-empty match condition",
+		);
+		try {
+			$this->repository->delete(Student::class);
+		}
+		finally {
+			self::assertSame(1, $this->scalar(
+				"select count(*) from Student",
+			));
+		}
 	}
 
 	public function testInsertSupportsDeveloperSuppliedPrimaryKey():void {
