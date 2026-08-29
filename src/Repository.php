@@ -7,8 +7,8 @@ use GT\Orm\Metadata\ColumnName;
 use GT\Orm\Metadata\EntityMetadataFactory;
 use GT\Orm\Metadata\PropertyMetadata;
 use GT\Orm\Persistence\EntityWriter;
+use GT\Orm\Query\FetchQuery;
 use GT\SqlBuilder\Condition\Condition;
-use GT\SqlBuilder\SelectBuilder;
 
 class Repository {
 	/** @var array<class-string, array<int|string, object>> */
@@ -74,29 +74,27 @@ class Repository {
 		string $className,
 		int|string|Condition... $match,
 	) {
-		$parameters = [];
-
-		$primaryKey = $this->getPrimaryKey($className);
-
-		if(count($match) === 1 && !$match[0] instanceof Condition) {
-			$parameters[$primaryKey] = $match[0];
-			$cachedEntity = $this->entityCache[$className][$match[0]] ?? null;
+		$query = new FetchQuery();
+		$query->from($this->getTableName($className))
+			->select(...$this->getColumnList($className));
+		$query->match($this->getPrimaryKey($className), ...$match);
+		$cacheKey = $query->getCacheKey();
+		if($cacheKey !== null) {
+			$cachedEntity = $this->entityCache[$className][$cacheKey] ?? null;
 			if($cachedEntity instanceof $className) {
 				return $cachedEntity;
 			}
 		}
 
-		$builder = new SelectBuilder();
-		$builder->from($this->getTableName($className))
-			->select(...$this->getColumnList($className))
-			->where("$primaryKey = :$primaryKey");
-
-		$resultSet = $this->database->executeSql((string)$builder, $parameters);
+		$resultSet = $this->database->executeSql(
+			(string)$query,
+			$query->getParameters(),
+		);
 		$row = $resultSet->fetch();
 
 		$entity = $this->rowToEntity($row, $className);
-		if(isset($parameters[$primaryKey])) {
-			$this->entityCache[$className][$parameters[$primaryKey]] = $entity;
+		if($cacheKey !== null) {
+			$this->entityCache[$className][$cacheKey] = $entity;
 		}
 
 		return $entity;
@@ -263,7 +261,7 @@ class Repository {
 					$itemMetadata->getTableName(),
 					$itemPrimaryKey->getName(),
 				);
-				$builder = new SelectBuilder();
+				$builder = new FetchQuery();
 				$builder->from($junctionTable)
 					->select($itemColumn)
 					->where("$ownerColumn = :$ownerColumn")

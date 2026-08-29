@@ -13,6 +13,8 @@ use GT\Orm\Test\TestProject\Metadata\CustomPrimaryKeyEntity;
 use GT\Orm\Test\TestProject\Metadata\EntityStatus;
 use GT\Orm\Test\TestProject\Metadata\EnumEntity;
 use GT\Orm\Test\TestProject\Metadata\TemporalEntity;
+use Gt\SqlBuilder\Condition\AndCondition;
+use Gt\SqlBuilder\Condition\OrCondition;
 use Gt\SqlBuilder\SelectBuilder;
 use PHPUnit\Framework\TestCase;
 
@@ -42,6 +44,70 @@ class RepositoryTest extends TestCase {
 		$entity = (new Repository($database))->fetch(
 			CustomPrimaryKeyEntity::class,
 			"PERSON_ONE",
+		);
+
+		self::assertSame("PERSON_ONE", $entity->code);
+		self::assertSame("Ada", $entity->name);
+	}
+
+	public function testFetch_matchFieldValue():void {
+		$row = self::createStub(Row::class);
+		$row->method("contains")->willReturn(true);
+		$row->method("get")->willReturnMap([
+			["code", "PERSON_ONE"],
+			["name", "Ada"],
+		]);
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())->method("fetch")->willReturn($row);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturnCallback(function(string $query, array $args)use($resultSet) {
+				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
+				self::assertSame(
+					"select code, name from CustomPrimaryKeyEntity where name = :name",
+					$query,
+				);
+				self::assertSame(["name" => "Ada"], $args);
+				return $resultSet;
+			});
+
+		$entity = (new Repository($database))->fetch(
+			CustomPrimaryKeyEntity::class,
+			"name",
+			"Ada",
+		);
+
+		self::assertSame("PERSON_ONE", $entity->code);
+		self::assertSame("Ada", $entity->name);
+	}
+
+	public function testFetch_matchConditions():void {
+		$row = self::createStub(Row::class);
+		$row->method("contains")->willReturn(true);
+		$row->method("get")->willReturnMap([
+			["code", "PERSON_ONE"],
+			["name", "Ada"],
+		]);
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())->method("fetch")->willReturn($row);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturnCallback(function(string $query, array $args)use($resultSet) {
+				$query = str_replace(["\n", "\t", "  "], " ", trim($query));
+				self::assertSame(
+					"select code, name from CustomPrimaryKeyEntity where name = 'Ada' or code = 'PERSON_ONE'",
+					$query,
+				);
+				self::assertSame([], $args);
+				return $resultSet;
+			});
+
+		$entity = (new Repository($database))->fetch(
+			CustomPrimaryKeyEntity::class,
+			new AndCondition("name = 'Ada'"),
+			new OrCondition("code = 'PERSON_ONE'"),
 		);
 
 		self::assertSame("PERSON_ONE", $entity->code);

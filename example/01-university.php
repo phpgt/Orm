@@ -99,7 +99,7 @@ foreach($fetchedLesson->students as $student) {
 }
 
 // update() returns a new instance because the entities are readonly.
-$updatedGrace = $repository->update($grace, [
+$grace = $repository->update($grace, [
 	"name" => "Rear Admiral Grace Hopper",
 ]);
 $updatedLesson = $repository->update($lesson, [
@@ -107,8 +107,8 @@ $updatedLesson = $repository->update($lesson, [
 ]);
 
 $updatedRepository = new Repository($database);
-$updatedGrace = $updatedRepository->fetch(Student::class, $grace->id);
-$updatedLesson = $updatedRepository->fetch(Lesson::class, $lesson->id);
+$grace = $updatedRepository->fetch(Student::class, $grace->id);
+$lesson = $updatedRepository->fetch(Lesson::class, $lesson->id);
 echo "\nUpdated:\n";
-echo "- $updatedGrace->name\n";
-echo "- $updatedLesson->name\n";
+echo "- $grace->name\n";
+echo "- $lesson->name\n";
