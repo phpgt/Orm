@@ -1,6 +1,8 @@
 <?php
 namespace GT\Orm\Migration;
 
+use LogicException;
+
 class SchemaField {
 	private string $type;
 	private bool $nullable;
@@ -19,12 +21,22 @@ class SchemaField {
 		return $this->name;
 	}
 
-	public function setType(mixed $typeName):void {
+	public function setType(string $typeName):void {
 		$this->type = $typeName;
 	}
 
 	public function getType():?string {
 		return $this->type ?? null;
+	}
+
+	public function requireType():string {
+		if(!isset($this->type)) {
+			throw new LogicException(
+				"Schema field {$this->name} does not have a type",
+			);
+		}
+
+		return $this->type;
 	}
 
 	public function setNullable(bool $allowsNull):void {
