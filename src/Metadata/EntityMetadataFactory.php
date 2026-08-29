@@ -33,17 +33,17 @@ class EntityMetadataFactory {
 	}
 
 	/**
-	 * @template T of object
+	 * @template T of Entity
 	 * @param class-string<T> $className
 	 * @return T
 	 */
-	public function newInstanceWithoutConstructor(string $className):object {
+	public function newInstanceWithoutConstructor(string $className):Entity {
 		return (new ReflectionClass($className))
 			->newInstanceWithoutConstructor();
 	}
 
 	/**
-	 * @template T of object
+	 * @template T of Entity
 	 * @param class-string<T> $className
 	 * @param callable(T):void $initializer
 	 * @return T
@@ -51,7 +51,7 @@ class EntityMetadataFactory {
 	public function newLazyGhost(
 		string $className,
 		callable $initializer,
-	):object {
+	):Entity {
 		return (new ReflectionClass($className))
 			->newLazyGhost($initializer);
 	}

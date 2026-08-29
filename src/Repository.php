@@ -1,6 +1,7 @@
 <?php
 namespace GT\Orm;
 
+use Generator;
 use GT\Database\Database;
 use GT\Database\Result\Row;
 use GT\Orm\Metadata\ColumnName;
@@ -11,7 +12,7 @@ use GT\Orm\Query\QueryFactory;
 use GT\SqlBuilder\Condition\Condition;
 
 class Repository {
-	/** @var array<class-string, array<int|string, object>> */
+	/** @var array<class-string<Entity>, array<int|string, Entity>> */
 	private array $entityCache = [];
 	private EntityMetadataFactory $metadataFactory;
 	private ColumnName $columnName;
@@ -101,7 +102,7 @@ class Repository {
 	public function fetch(
 		string $className,
 		int|string|Condition... $match,
-	) {
+	):Entity|null {
 		$query = $this->queryFactory->select();
 		$query->from($this->getTableName($className))
 			->select(...$this->getColumnList($className));
@@ -119,6 +120,9 @@ class Repository {
 			$query->getParameters(),
 		);
 		$row = $resultSet->fetch();
+		if($row === null) {
+			return null;
+		}
 
 		$entity = $this->rowToEntity($row, $className);
 		if($cacheKey !== null) {
@@ -126,6 +130,34 @@ class Repository {
 		}
 
 		return $entity;
+	}
+
+	/**
+	 * Fetch all entities matching the given criteria.
+	 *
+	 * @template TFetchAllEntity as Entity
+	 * @param class-string<TFetchAllEntity> $className
+	 * @param int|string|Condition ...$match
+	 * @return Generator<TFetchAllEntity>
+	 */
+	public function fetchAll(
+		string $className,
+		int|string|Condition... $match,
+	):iterable {
+		$query = $this->queryFactory->select();
+		$query->from($this->getTableName($className))
+			->select(...$this->getColumnList($className));
+		$query->match($this->getPrimaryKey($className), ...$match);
+		$resultSet = $this->database->executeSql(
+			(string)$query,
+			$query->getParameters(),
+		);
+
+		while($row = $resultSet->fetch()) {
+			$entity = $this->rowToEntity($row, $className);
+			$this->cacheEntity($entity);
+			yield $entity;
+		}
 	}
 
 	public function getTableName(string $entityClassName):string {
@@ -160,9 +192,13 @@ class Repository {
 	 * @template THydratedEntity as Entity
 	 * @param class-string<THydratedEntity> $className
 	 * @param null|THydratedEntity $instance An existing object reference to hydrate
-	 * @return null|THydratedEntity
+	 * @return THydratedEntity
 	 */
-	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
+	protected function rowToEntity(
+		Row $row,
+		string $className,
+		?Entity $instance = null,
+	):Entity {
 		$metadata = $this->metadataFactory->get($className);
 
 		if($instance === null) {
@@ -270,25 +306,17 @@ class Repository {
 				$itemClassName,
 			) {
 				$ownerMetadata = $this->metadataFactory->get($instance);
-				$ownerPrimaryKey = $ownerMetadata->requirePrimaryKey();
 				$itemMetadata = $this->metadataFactory->get($itemClassName);
+				$ownerPrimaryKey = $ownerMetadata->requirePrimaryKey();
 				$itemPrimaryKey = $itemMetadata->requirePrimaryKey();
-				$junctionTable = $this->columnName->junctionTable(
-					$ownerMetadata->getTableName(),
-					$metadata->getName(),
-					$itemMetadata->getTableName(),
-				);
-				$ownerColumn = $this->columnName->junctionForeignKey(
-					$ownerMetadata->getTableName(),
-					$ownerPrimaryKey->getName(),
-				);
-				$itemColumn = $this->columnName->junctionItemForeignKey(
-					$ownerMetadata->getTableName(),
-					$ownerPrimaryKey->getName(),
-					$metadata->getName(),
-					$itemMetadata->getTableName(),
-					$itemPrimaryKey->getName(),
-				);
+				[$junctionTable, $ownerColumn, $itemColumn] = $this->columnName
+					->junction(
+						$ownerMetadata->getTableName(),
+						$ownerPrimaryKey->getName(),
+						$metadata->getName(),
+						$itemMetadata->getTableName(),
+						$itemPrimaryKey->getName(),
+					);
 				$builder = $this->queryFactory->select();
 				$builder->from($junctionTable)
 					->select($itemColumn)
@@ -302,18 +330,7 @@ class Repository {
 					[$ownerColumn => $ownerPrimaryKeyValue],
 				);
 				$itemList = [];
-				while(true) {
-					try {
-						$row = $resultSet->fetch();
-					}
-					catch(\Throwable) {
-						break;
-					}
-
-					if(!$row) {
-						break;
-					}
-
+				while($row = $resultSet->fetch()) {
 					$itemList[] = $this->createLazyEntityReference(
 						$itemClassName,
 						$itemPrimaryKey->fromDatabase($row->get($itemColumn)),
@@ -375,11 +392,13 @@ class Repository {
 
 	private function cacheEntity(Entity $entity):void {
 		$metadata = $this->metadataFactory->get($entity);
-		foreach($metadata->getPropertyList() as $property) {
-			if(!$property->isCollection()
-				&& !$property->getProperty()->isInitialized($entity)) {
-				return;
-			}
+		$hasUninitialisedProperty = array_any(
+			$metadata->getPropertyList(),
+			fn(PropertyMetadata $property) => !$property->isCollection()
+				&& !$property->getProperty()->isInitialized($entity),
+		);
+		if($hasUninitialisedProperty) {
+			return;
 		}
 
 		$primaryKey = $metadata->requirePrimaryKey();
@@ -390,11 +409,6 @@ class Repository {
 	}
 
 	private function rowContains(Row $row, string $propertyName):bool {
-		try {
-			return $row->contains($propertyName);
-		}
-		catch(\Throwable) {
-			return false;
-		}
+		return $row->contains($propertyName);
 	}
 }

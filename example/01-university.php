@@ -112,3 +112,9 @@ $lesson = $updatedRepository->fetch(Lesson::class, $lesson->id);
 echo "\nUpdated:\n";
 echo "- $grace->name\n";
 echo "- $lesson->name\n";
+
+echo "Fetching all students at once:\n";
+
+foreach($repository->fetchAll(Student::class) as $student) {
+	echo $student->name, "-";
+}

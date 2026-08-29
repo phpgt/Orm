@@ -3,6 +3,7 @@ namespace GT\Orm\Test;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Generator;
 use GT\Database\Database;
 use GT\Orm\Exception\InvalidEntityChangeException;
 use GT\Orm\Exception\InvalidEntityStateException;
@@ -144,6 +145,68 @@ class RepositoryPersistenceTest extends TestCase {
 				"select count(*) from Student",
 			));
 		}
+	}
+
+	public function testFetchAllReturnsGeneratorOfAllEntities():void {
+		$this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert($this->newStudent("Grace"));
+		$this->repository->insert($this->newStudent("Alan"));
+
+		$studentGenerator = $this->repository->fetchAll(Student::class);
+
+		self::assertInstanceOf(Generator::class, $studentGenerator);
+		self::assertSame(
+			["Ada", "Grace", "Alan"],
+			array_map(
+				fn(Student $student) => $student->name,
+				iterator_to_array($studentGenerator),
+			),
+		);
+	}
+
+	public function testFetchAllByPrimaryKey():void {
+		$ada = $this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert($this->newStudent("Grace"));
+
+		$studentList = iterator_to_array(
+			$this->repository->fetchAll(Student::class, $ada->id),
+		);
+
+		self::assertCount(1, $studentList);
+		self::assertSame("Ada", $studentList[0]->name);
+	}
+
+	public function testFetchAllByFieldValue():void {
+		$this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert($this->newStudent("Grace"));
+		$this->repository->insert($this->newStudent("Ada"));
+
+		$studentList = iterator_to_array(
+			$this->repository->fetchAll(Student::class, "name", "Ada"),
+		);
+
+		self::assertCount(2, $studentList);
+		self::assertSame("Ada", $studentList[0]->name);
+		self::assertSame("Ada", $studentList[1]->name);
+	}
+
+	public function testFetchAllByCondition():void {
+		$this->repository->insert($this->newStudent("Ada"));
+		$this->repository->insert(new Student(
+			"Grace",
+			new DateTimeImmutable("2000-01-01"),
+			false,
+		));
+
+		$studentList = iterator_to_array(
+			$this->repository->fetchAll(
+				Student::class,
+				new AndCondition("active = false"),
+			),
+		);
+
+		self::assertCount(1, $studentList);
+		self::assertSame("Grace", $studentList[0]->name);
 	}
 
 	public function testInsertSupportsDeveloperSuppliedPrimaryKey():void {
