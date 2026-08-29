@@ -105,6 +105,9 @@ class PhpDocClassNameResolver {
 	/** @param array<string, string> $importList */
 	private function addImport(array &$importList, string $import):void {
 		$partList = preg_split('/\s+as\s+/i', $import);
+		if($partList === false) {
+			return;
+		}
 		$className = ltrim($partList[0], "\\");
 		$alias = $partList[1] ?? substr(
 			$className,

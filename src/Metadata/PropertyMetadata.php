@@ -1,16 +1,16 @@
 <?php
 namespace GT\Orm\Metadata;
 
-use BackedEnum;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
 use LogicException;
-use ReflectionEnum;
+use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
 
 readonly class PropertyMetadata {
+	/** @param ?class-string $collectionItemClassName */
 	public function __construct(
 		private ReflectionProperty $property,
 		private ReflectionNamedType $type,
@@ -20,6 +20,7 @@ readonly class PropertyMetadata {
 		private bool $autoIncrement,
 		private bool $hasDefaultValue,
 		private bool|int|float|string|null $defaultValue,
+		private BackedEnumMetadata $backedEnumMetadata,
 	) {}
 
 	public function getProperty():ReflectionProperty {
@@ -36,8 +37,7 @@ readonly class PropertyMetadata {
 
 	public function getStorageType():string {
 		if($this->kind === PropertyKind::BACKED_ENUM) {
-			$refEnum = new ReflectionEnum($this->getTypeName());
-			return $refEnum->getBackingType()->getName();
+			return $this->backedEnumMetadata->backingType($this->getTypeName());
 		}
 
 		return $this->getTypeName();
@@ -45,6 +45,35 @@ readonly class PropertyMetadata {
 
 	public function getKind():PropertyKind {
 		return $this->kind;
+	}
+
+	public function isCollection():bool {
+		return $this->kind === PropertyKind::COLLECTION;
+	}
+
+	public function isEntity():bool {
+		return $this->kind === PropertyKind::ENTITY;
+	}
+
+	/** @param callable(object):void $initializer */
+	public function newTypeLazyGhost(callable $initializer):object {
+		return (new ReflectionClass($this->classTypeName()))
+			->newLazyGhost($initializer);
+	}
+
+	/** @param array<object> $itemList */
+	public function initialiseCollectionGhost(
+		object $ghost,
+		array $itemList,
+	):void {
+		$className = $this->classTypeName();
+		$collection = new $className($itemList);
+		$reflection = new ReflectionClass($className);
+		foreach($reflection->getProperties() as $property) {
+			if($property->isInitialized($collection)) {
+				$property->setValue($ghost, $property->getValue($collection));
+			}
+		}
 	}
 
 	/** @return class-string */
@@ -60,6 +89,21 @@ readonly class PropertyMetadata {
 
 	public function isNullable():bool {
 		return $this->type->allowsNull();
+	}
+
+	public function acceptsValue(mixed $value):bool {
+		if($value === null) {
+			return $this->isNullable();
+		}
+
+		$typeName = $this->getTypeName();
+		return match($typeName) {
+			"string" => is_string($value),
+			"int" => is_int($value),
+			"float" => is_float($value) || is_int($value),
+			"bool" => is_bool($value),
+			default => $value instanceof $typeName,
+		};
 	}
 
 	public function isPrimaryKey():bool {
@@ -86,7 +130,10 @@ readonly class PropertyMetadata {
 		return match($this->kind) {
 			PropertyKind::SCALAR => $this->scalarFromDatabase($value),
 			PropertyKind::DATE_TIME => $this->dateTimeFromDatabase($value),
-			PropertyKind::BACKED_ENUM => $this->enumFromDatabase($value),
+			PropertyKind::BACKED_ENUM => $this->backedEnumMetadata->fromDatabase(
+				$this->getTypeName(),
+				$value,
+			),
 			default => $value,
 		};
 	}
@@ -102,20 +149,41 @@ readonly class PropertyMetadata {
 
 	private function dateTimeFromDatabase(string $value):DateTimeInterface {
 		$typeName = $this->getTypeName();
+		$value = $this->dateTimeWithTimezone($value);
 		return match($typeName) {
 			DateTimeInterface::class,
 			DateTimeImmutable::class => new DateTimeImmutable($value),
 			DateTime::class => new DateTime($value),
-			default => new $typeName($value),
+			default => $this->newDateTime($typeName, $value),
 		};
 	}
 
-	private function enumFromDatabase(string $value):BackedEnum {
-		/** @var class-string<BackedEnum> $typeName */
-		$typeName = $this->getTypeName();
-		$backingType = (new ReflectionEnum($typeName))->getBackingType()->getName();
-		$backingValue = $backingType === "int" ? (int)$value : $value;
+	private function newDateTime(
+		string $className,
+		string $value,
+	):DateTimeInterface {
+		if(!is_a($className, DateTimeInterface::class, true)) {
+			throw new LogicException("$className is not a date and time class");
+		}
 
-		return $typeName::from($backingValue);
+		return new $className($value);
+	}
+
+	private function dateTimeWithTimezone(string $value):string {
+		if(preg_match("/(?:Z|[+-]\\d{2}:?\\d{2})$/", $value)) {
+			return $value;
+		}
+
+		return "$value+00:00";
+	}
+
+	/** @return class-string */
+	private function classTypeName():string {
+		$className = $this->getTypeName();
+		if(!class_exists($className) && !enum_exists($className)) {
+			throw new LogicException("Property type $className is not a class");
+		}
+
+		return $className;
 	}
 }

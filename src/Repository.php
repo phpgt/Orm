@@ -5,17 +5,17 @@ use GT\Database\Database;
 use GT\Database\Result\Row;
 use GT\Orm\Metadata\ColumnName;
 use GT\Orm\Metadata\EntityMetadataFactory;
-use GT\Orm\Metadata\PropertyKind;
 use GT\Orm\Metadata\PropertyMetadata;
+use GT\Orm\Persistence\EntityWriter;
 use GT\SqlBuilder\Condition\Condition;
 use GT\SqlBuilder\SelectBuilder;
-use ReflectionClass;
 
 class Repository {
 	/** @var array<class-string, array<int|string, object>> */
 	private array $entityCache = [];
 	private EntityMetadataFactory $metadataFactory;
 	private ColumnName $columnName;
+	private EntityWriter $entityWriter;
 
 	public function __construct(
 		protected Database $database,
@@ -23,13 +23,41 @@ class Repository {
 	) {
 		$this->metadataFactory = $metadataFactory ?? new EntityMetadataFactory();
 		$this->columnName = new ColumnName();
+		$this->entityWriter = new EntityWriter(
+			$this->database,
+			$this->metadataFactory,
+			$this->columnName,
+		);
 	}
 
 	/**
-	 * Fetch a single object of type T matching the given criteria.
+	 * @template TInsertedEntity as Entity
+	 * @param TInsertedEntity $entity
+	 * @return TInsertedEntity
+	 */
+	public function insert(Entity $entity):Entity {
+		$entity = $this->entityWriter->insert($entity);
+		$this->cacheEntity($entity);
+		return $entity;
+	}
+
+	/**
+	 * @template TUpdatedEntity as Entity
+	 * @param TUpdatedEntity $entity
+	 * @param array<string, mixed> $changeList
+	 * @return TUpdatedEntity
+	 */
+	public function update(Entity $entity, array $changeList):Entity {
+		$entity = $this->entityWriter->update($entity, $changeList);
+		$this->cacheEntity($entity);
+		return $entity;
+	}
+
+	/**
+	 * Fetch a single entity matching the given criteria.
 	 *
-	 * @template T
-	 * @param class-string<T> $className The class name of the class
+	 * @template TFetchedEntity as Entity
+	 * @param class-string<TFetchedEntity> $className The entity class name
 	 * @param int|string $match $match can take variable arguments:
 	 * single int|string
 	 *     treated as the primary key (equivalent to getById)
@@ -40,7 +68,7 @@ class Repository {
 	 *     used to build the where/join clauses, and/or handled
 	 *     by the Condition implementation
 	 *
-	 * @return null|T
+	 * @return null|TFetchedEntity
 	 */
 	public function fetch(
 		string $className,
@@ -52,8 +80,9 @@ class Repository {
 
 		if(count($match) === 1 && !$match[0] instanceof Condition) {
 			$parameters[$primaryKey] = $match[0];
-			if(isset($this->entityCache[$className][$match[0]])) {
-				return $this->entityCache[$className][$match[0]];
+			$cachedEntity = $this->entityCache[$className][$match[0]] ?? null;
+			if($cachedEntity instanceof $className) {
+				return $cachedEntity;
 			}
 		}
 
@@ -89,7 +118,7 @@ class Repository {
 		$columnList = [];
 		$metadata = $this->metadataFactory->get($entityClassName);
 		foreach($metadata->getPropertyList() as $propertyMetadata) {
-			if($propertyMetadata->getKind() === PropertyKind::COLLECTION) {
+			if($propertyMetadata->isCollection()) {
 				continue;
 			}
 			array_push(
@@ -102,17 +131,17 @@ class Repository {
 	}
 
 	/**
-	 * @template T
-	 * @param class-string<T> $className
-	 * @param null|object $instance An existing object reference to hydrate
-	 * @return null|T
+	 * @template THydratedEntity as Entity
+	 * @param class-string<THydratedEntity> $className
+	 * @param null|THydratedEntity $instance An existing object reference to hydrate
+	 * @return null|THydratedEntity
 	 */
 	protected function rowToEntity(Row $row, string $className, ?object $instance = null) {
-		$refClass = new ReflectionClass($className);
 		$metadata = $this->metadataFactory->get($className);
 
 		if($instance === null) {
-			$instance = $refClass->newInstanceWithoutConstructor();
+			$instance = $this->metadataFactory
+				->newInstanceWithoutConstructor($className);
 		}
 
 		$rowValues = [];
@@ -137,7 +166,7 @@ class Repository {
 		PropertyMetadata $metadata,
 		array $rowValues,
 	):void {
-		if($metadata->getKind() === PropertyKind::COLLECTION) {
+		if($metadata->isCollection()) {
 			$this->handleLazyCollectionProperty($instance, $metadata);
 			return;
 		}
@@ -147,11 +176,7 @@ class Repository {
 			return;
 		}
 
-		if(in_array($metadata->getKind(), [
-			PropertyKind::SCALAR,
-			PropertyKind::DATE_TIME,
-			PropertyKind::BACKED_ENUM,
-		], true)) {
+		if(!$metadata->isEntity()) {
 			$this->setInstanceProperty(
 				$instance,
 				$metadata,
@@ -162,6 +187,7 @@ class Repository {
 
 		$foreignPrimaryKeyValue = $rowValues[$columnName];
 		if($foreignPrimaryKeyValue === null) {
+			$this->setInstanceProperty($instance, $metadata, null);
 			return;
 		}
 
@@ -209,16 +235,12 @@ class Repository {
 			return;
 		}
 
-		$collectionClassName = $metadata->getTypeName();
 		$itemClassName = $metadata->getCollectionItemClassName();
-		$refClassCollection = new ReflectionClass($collectionClassName);
 
-		$lazyGhost = $refClassCollection->newLazyGhost(
+		$lazyGhost = $metadata->newTypeLazyGhost(
 			function(object $ghost) use (
 				$instance,
 				$metadata,
-				$refClassCollection,
-				$collectionClassName,
 				$itemClassName,
 			) {
 				$ownerMetadata = $this->metadataFactory->get($instance);
@@ -272,14 +294,7 @@ class Repository {
 					);
 				}
 
-				$collection = new $collectionClassName($itemList);
-				foreach($refClassCollection->getProperties() as $collectionProperty) {
-					if(!$collectionProperty->isInitialized($collection)) {
-						continue;
-					}
-
-					$collectionProperty->setValue($ghost, $collectionProperty->getValue($collection));
-				}
+				$metadata->initialiseCollectionGhost($ghost, $itemList);
 			}
 		);
 
@@ -287,7 +302,7 @@ class Repository {
 	}
 
 	private function getColumnName(PropertyMetadata $metadata):string {
-		if($metadata->getKind() !== PropertyKind::ENTITY) {
+		if(!$metadata->isEntity()) {
 			return $metadata->getName();
 		}
 
@@ -299,17 +314,16 @@ class Repository {
 		);
 	}
 
-	/**
-	 * @param class-string $className
-	 */
 	private function createLazyEntityReference(
 		string $className,
 		int|string $primaryKeyValue,
-	):object {
+	):Entity {
+		$className = $this->metadataFactory
+			->requireEntityClassName($className);
 		$metadata = $this->metadataFactory->get($className);
 		$primaryKey = $metadata->requirePrimaryKey();
-		$refClass = new ReflectionClass($className);
-		$lazyGhost = $refClass->newLazyGhost(
+		$lazyGhost = $this->metadataFactory->newLazyGhost(
+			$className,
 			function(object $ghost) use ($className, $metadata, $primaryKeyValue) {
 				$entity = $this->fetch($className, $primaryKeyValue);
 				foreach($metadata->getPropertyList() as $propertyMetadata) {
@@ -331,6 +345,22 @@ class Repository {
 		);
 
 		return $lazyGhost;
+	}
+
+	private function cacheEntity(Entity $entity):void {
+		$metadata = $this->metadataFactory->get($entity);
+		foreach($metadata->getPropertyList() as $property) {
+			if(!$property->isCollection()
+				&& !$property->getProperty()->isInitialized($entity)) {
+				return;
+			}
+		}
+
+		$primaryKey = $metadata->requirePrimaryKey();
+		$value = $primaryKey->getProperty()->getValue($entity);
+		if(is_int($value) || is_string($value)) {
+			$this->entityCache[$entity::class][$value] = $entity;
+		}
 	}
 
 	private function rowContains(Row $row, string $propertyName):bool {

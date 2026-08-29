@@ -17,10 +17,16 @@ class PropertyTypeClassifier {
 	) {}
 
 	/**
-	 * @param class-string<Collection<array-key, Entity>> $collectionClassName
 	 * @return class-string<Entity>
 	 */
 	public function collectionItemClass(string $collectionClassName):string {
+		if(!class_exists($collectionClassName)
+			|| !is_a($collectionClassName, Collection::class, true)) {
+			throw new InvalidCollectionException(
+				"Collection class $collectionClassName does not exist",
+			);
+		}
+
 		$refClass = new ReflectionClass($collectionClassName);
 		$docComment = $refClass->getDocComment();
 		if($docComment === false

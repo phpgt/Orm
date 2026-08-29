@@ -2,6 +2,7 @@
 namespace GT\Orm\Metadata;
 
 use GT\Orm\Exception\InvalidPrimaryKeyException;
+use ReflectionClass;
 
 readonly class EntityMetadata {
 	/**
@@ -41,5 +42,30 @@ readonly class EntityMetadata {
 		}
 
 		return $this->primaryKey;
+	}
+
+	/**
+	 * @template T of object
+	 * @param T $source
+	 * @param array<string> $skippedPropertyList
+	 * @return T
+	 */
+	public function copyWithoutProperties(
+		object $source,
+		array $skippedPropertyList,
+	):object {
+		$refClass = new ReflectionClass($source);
+		$copy = $refClass->newInstanceWithoutConstructor();
+		foreach($refClass->getProperties() as $property) {
+			if($property->isStatic()
+				|| in_array($property->getName(), $skippedPropertyList, true)
+				|| !$property->isInitialized($source)) {
+				continue;
+			}
+
+			$property->setValue($copy, $property->getValue($source));
+		}
+
+		return $copy;
 	}
 }

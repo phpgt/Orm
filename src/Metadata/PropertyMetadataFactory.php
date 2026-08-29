@@ -7,13 +7,13 @@ use GT\Orm\Exception\InvalidAutoIncrementException;
 use GT\Orm\Exception\InvalidDefaultValueException;
 use GT\Orm\Exception\InvalidEntityPropertyException;
 use GT\Orm\Exception\InvalidPrimaryKeyException;
-use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionProperty;
 
 class PropertyMetadataFactory {
 	public function __construct(
 		private readonly PropertyTypeClassifier $typeClassifier = new PropertyTypeClassifier(),
+		private readonly BackedEnumMetadata $backedEnumMetadata = new BackedEnumMetadata(),
 	) {}
 
 	/** @param class-string $className */
@@ -48,6 +48,7 @@ class PropertyMetadataFactory {
 			$autoIncrement,
 			$defaultAttribute !== null,
 			$defaultAttribute?->value,
+			$this->backedEnumMetadata,
 		);
 	}
 
@@ -146,9 +147,8 @@ class PropertyMetadataFactory {
 			return is_string($value);
 		}
 		if($kind === PropertyKind::BACKED_ENUM) {
-			$backingType = (new ReflectionEnum($type->getName()))
-				->getBackingType()
-				->getName();
+			$backingType = $this->backedEnumMetadata
+				->backingType($type->getName());
 			return $backingType === "int" ? is_int($value) : is_string($value);
 		}
 		if($kind === PropertyKind::SCALAR) {

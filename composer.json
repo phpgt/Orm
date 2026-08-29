@@ -28,7 +28,7 @@
 		"phpunit": "vendor/bin/phpunit --configuration phpunit.xml",
 		"phpcs": "vendor/bin/phpcs src --standard=phpcs.xml",
 		"phpmd": "vendor/bin/phpmd src/ text phpmd.xml",
-		"phpstan": "vendor/bin/phpstan analyse --level 6 --memory-limit 1G src",
+		"phpstan": "vendor/bin/phpstan analyse --level 7 --memory-limit 1G src",
 		"test": [
 			"@phpunit",
 			"@phpcs",

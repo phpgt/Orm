@@ -3,3 +3,4 @@
 /vendor/
 # Local wiki symlink
 docs
+*.sqlite

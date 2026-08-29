@@ -7,6 +7,7 @@ use GT\Orm\Attribute\PrimaryKey;
 use GT\Orm\Exception\InvalidAutoIncrementException;
 use GT\Orm\Exception\InvalidEntityPropertyException;
 use GT\Orm\Exception\InvalidPrimaryKeyException;
+use GT\Orm\Entity;
 use ReflectionClass;
 use ReflectionProperty;
 
@@ -19,7 +20,9 @@ class EntityMetadataFactory {
 	) {}
 
 	public function get(object|string $entity):EntityMetadata {
-		$className = is_object($entity) ? $entity::class : $entity;
+		$className = is_object($entity)
+			? $entity::class
+			: $this->requireClassName($entity);
 		if(isset($this->cache[$className])) {
 			return $this->cache[$className];
 		}
@@ -27,6 +30,53 @@ class EntityMetadataFactory {
 		$metadata = $this->create($className);
 		$this->cache[$className] = $metadata;
 		return $metadata;
+	}
+
+	/**
+	 * @template T of object
+	 * @param class-string<T> $className
+	 * @return T
+	 */
+	public function newInstanceWithoutConstructor(string $className):object {
+		return (new ReflectionClass($className))
+			->newInstanceWithoutConstructor();
+	}
+
+	/**
+	 * @template T of object
+	 * @param class-string<T> $className
+	 * @param callable(T):void $initializer
+	 * @return T
+	 */
+	public function newLazyGhost(
+		string $className,
+		callable $initializer,
+	):object {
+		return (new ReflectionClass($className))
+			->newLazyGhost($initializer);
+	}
+
+	/** @return class-string<Entity> */
+	public function requireEntityClassName(string $className):string {
+		if(!class_exists($className)
+			|| !is_a($className, Entity::class, true)) {
+			throw new InvalidEntityPropertyException(
+				"Entity class $className does not exist",
+			);
+		}
+
+		return $className;
+	}
+
+	/** @return class-string */
+	private function requireClassName(string $className):string {
+		if(!class_exists($className)) {
+			throw new InvalidEntityPropertyException(
+				"Entity class $className does not exist",
+			);
+		}
+
+		return $className;
 	}
 
 	/** @param class-string $className */
