@@ -4,7 +4,7 @@ namespace GT\Orm\Test\TestProject\Persistence;
 use GT\Orm\Attribute\AutoIncrementPrimaryKey;
 use GT\Orm\Entity;
 
-readonly class Lesson implements Entity {
+readonly class Lesson extends Entity {
 	#[AutoIncrementPrimaryKey]
 	public int $id;
 

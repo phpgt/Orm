@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1479bda901d17b03917a667850f1d58a",
+    "content-hash": "9123b89d0d713f7534e3511ef411ef4e",
     "packages": [
         {
             "name": "greenlion/php-sql-parser",
@@ -3642,6 +3642,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
+        "php": ">=8.5",
         "ext-pdo": "*"
     },
     "platform-dev": {},

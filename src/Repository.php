@@ -8,8 +8,10 @@ use GT\Orm\Metadata\ColumnName;
 use GT\Orm\Metadata\EntityMetadataFactory;
 use GT\Orm\Metadata\PropertyMetadata;
 use GT\Orm\Persistence\EntityWriter;
+use GT\Orm\Persistence\EntityDeleter;
 use GT\Orm\Query\QueryFactory;
 use GT\SqlBuilder\Condition\Condition;
+use InvalidArgumentException;
 
 class Repository {
 	/** @var array<class-string<Entity>, array<int|string, Entity>> */
@@ -17,6 +19,7 @@ class Repository {
 	private EntityMetadataFactory $metadataFactory;
 	private ColumnName $columnName;
 	private EntityWriter $entityWriter;
+	private EntityDeleter $entityDeleter;
 	private QueryFactory $queryFactory;
 
 	public function __construct(
@@ -31,6 +34,11 @@ class Repository {
 			$this->columnName,
 		);
 		$this->queryFactory = new QueryFactory();
+		$this->entityDeleter = new EntityDeleter(
+			$this->database,
+			$this->metadataFactory,
+			$this->queryFactory,
+		);
 	}
 
 	/**
@@ -46,39 +54,72 @@ class Repository {
 
 	/**
 	 * @template TUpdatedEntity as Entity
-	 * @param TUpdatedEntity $entity
-	 * @param array<string, mixed> $changeList
-	 * @return TUpdatedEntity
+	 * @param TUpdatedEntity|class-string<TUpdatedEntity> $target
+	 * @param bool|int|string|array<string, mixed>|Condition ...$arguments
+	 * @return ($target is Entity ? TUpdatedEntity : int)
 	 */
-	public function update(Entity $entity, array $changeList):Entity {
-		$entity = $this->entityWriter->update($entity, $changeList);
-		$this->cacheEntity($entity);
-		return $entity;
+	public function update(
+		Entity|string $target,
+		bool|int|string|array|Condition... $arguments,
+	):Entity|int {
+		if($target instanceof Entity) {
+			if($arguments !== []) {
+				throw new InvalidArgumentException(
+					"Entity updates do not accept additional arguments",
+				);
+			}
+
+			$entity = $this->entityWriter->update($target);
+			$this->cacheEntity($entity);
+			return $entity;
+		}
+
+		$className = $this->metadataFactory->requireEntityClassName($target);
+		$updated = $this->entityWriter->updateMatching(
+			$className,
+			$arguments,
+		);
+		unset($this->entityCache[$className]);
+
+		return $updated;
 	}
 
 	/**
-	 * Delete entities matching the given criteria.
+	 * Delete an entity by its primary key.
 	 *
-	 * @param class-string<Entity> $className
-	 * @param int|string|Condition ...$match
+	 * @param Entity|class-string<Entity> $entity
+	 * @param bool|int|string|array<string, bool|int|string|null>|Condition ...$match
 	 * @return int The number of deleted rows
 	 */
 	public function delete(
-		string $className,
-		int|string|Condition... $match,
+		Entity|string $entity,
+		bool|int|string|array|Condition... $match,
 	):int {
-		$query = $this->queryFactory->delete();
-		$query->from($this->getTableName($className));
-		$query->match($this->getPrimaryKey($className), ...$match);
-		$deleted = $this->database->executeSql(
-			(string)$query,
-			$query->getParameters(),
-		)->affectedRows();
-
-		if($deleted > 0) {
-			unset($this->entityCache[$className]);
+		$deleted = $this->entityDeleter->delete($entity, ...$match);
+		if($entity instanceof Entity) {
+			$metadata = $this->metadataFactory->get($entity);
+			$value = $metadata->requirePrimaryKey()->getProperty()->getValue($entity);
+			unset($this->entityCache[$entity::class][$value]);
+		}
+		else {
+			unset($this->entityCache[$entity]);
 		}
 
+		return $deleted;
+	}
+
+	/**
+	 * Explicitly delete every entity matching the supplied criteria.
+	 *
+	 * @param class-string<Entity> $className
+	 * @param bool|int|string|array<string, bool|int|string|null>|Condition ...$match
+	 */
+	public function deleteAll(
+		string $className,
+		bool|int|string|array|Condition... $match,
+	):int {
+		$deleted = $this->entityDeleter->deleteAll($className, ...$match);
+		unset($this->entityCache[$className]);
 		return $deleted;
 	}
 
@@ -164,7 +205,7 @@ class Repository {
 		return $this->metadataFactory->get($entityClassName)->getTableName();
 	}
 
-	/** @param object|class-string $entity */
+	/** @param object|string $entity */
 	private function getPrimaryKey(object|string $entity):string {
 		return $this->metadataFactory->get($entity)
 			->requirePrimaryKey()

@@ -6,13 +6,13 @@ use GT\SqlBuilder\DeleteBuilder;
 use InvalidArgumentException;
 
 class DeleteQuery extends DeleteBuilder {
-	/** @var array<string, int|string> */
+	/** @var array<string, bool|int|string|null> */
 	private array $parameters = [];
 
-	/** @param int|string|Condition ...$match */
+	/** @param bool|int|string|array<string, bool|int|string|null>|Condition ...$match */
 	public function match(
 		string $primaryKey,
-		int|string|Condition... $match,
+		bool|int|string|array|Condition... $match,
 	):self {
 		$queryMatch = new QueryMatch($primaryKey, ...$match);
 		$conditionList = $queryMatch->getConditionList();
@@ -22,7 +22,7 @@ class DeleteQuery extends DeleteBuilder {
 		return $this;
 	}
 
-	/** @return array<string, int|string> */
+	/** @return array<string, bool|int|string|null> */
 	public function getParameters():array {
 		return $this->parameters;
 	}

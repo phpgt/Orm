@@ -14,7 +14,7 @@ require(__DIR__ . "/../vendor/autoload.php");
 // - The Student class represents an individual student
 // - The Lesson class represents a lesson, which is assigned a collection of Students.
 
-readonly class Student implements Entity {
+readonly class Student extends Entity {
 	#[AutoIncrementPrimaryKey]
 	public int $id;
 
@@ -24,7 +24,7 @@ readonly class Student implements Entity {
 	) {}
 }
 
-readonly class Lesson implements Entity {
+readonly class Lesson extends Entity {
 	#[AutoIncrementPrimaryKey]
 	public int $id;
 
@@ -53,11 +53,7 @@ echo "$createTableSql;\n\n";
 $exampleName = pathinfo(__FILE__, PATHINFO_FILENAME);
 
 $projectRoot = dirname(__FILE__, 2);
-$database = new Database(new Settings(
-	baseDirectory: $projectRoot,
-	driver: Settings::DRIVER_SQLITE,
-	schema: "$projectRoot/example/$exampleName.sqlite",
-));
+$database = new Database();
 foreach($schemaTableList as $schemaTable) {
 	$database->executeSql(
 		new SchemaQuerySQLite($schemaTable)->generateSql(),
@@ -89,6 +85,12 @@ $lesson = $repository->insert(new Lesson(
 	]),
 ));
 
+// with() creates an immutable copy without changing or persisting the original.
+$renamedAda = $ada->with([
+	"name" => "Augusta Ada King",
+]);
+echo "$ada->name is also known as $renamedAda->name.\n\n";
+
 // A new repository ensures this is fetched from SQLite. The collection and
 // each student within it remain lazy until they are accessed.
 $readRepository = new Repository($database);
@@ -98,13 +100,13 @@ foreach($fetchedLesson->students as $student) {
 	echo "- $student->name\n";
 }
 
-// update() returns a new instance because the entities are readonly.
-$grace = $repository->update($grace, [
+// with() creates the immutable change; update() persists the resulting entity.
+$grace = $repository->update($grace->with([
 	"name" => "Rear Admiral Grace Hopper",
-]);
-$updatedLesson = $repository->update($lesson, [
+]));
+$updatedLesson = $repository->update($lesson->with([
 	"name" => "An introduction to relational databases",
-]);
+]));
 
 $updatedRepository = new Repository($database);
 $grace = $updatedRepository->fetch(Student::class, $grace->id);

@@ -3,6 +3,7 @@
 	"description": "Object relational mapper.",
 	"license": "MIT",
 	"require": {
+		"php": ">=8.5",
 		"ext-pdo": "*",
 		"phpgt/sqlbuilder": "^1.1",
 		"phpgt/database": "^1.8"

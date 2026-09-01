@@ -5,7 +5,7 @@ use DateTimeImmutable;
 use GT\Orm\Attribute\AutoIncrementPrimaryKey;
 use GT\Orm\Entity;
 
-readonly class Student implements Entity {
+readonly class Student extends Entity {
 	#[AutoIncrementPrimaryKey]
 	public int $id;
 

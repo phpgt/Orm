@@ -3,7 +3,7 @@ namespace GT\Orm\Test\TestProject\ForeignKeys\University;
 
 use GT\Orm\Entity;
 
-readonly class Department implements Entity {
+readonly class Department extends Entity {
 	public function __construct(
 		public string $id,
 		public string $name,

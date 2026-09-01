@@ -132,7 +132,7 @@ class EntityMetadataFactoryTest extends TestCase {
 		};
 
 		$this->expectException(InvalidCollectionException::class);
-		$this->expectExceptionMessage("must implement " . \GT\Orm\Entity::class);
+		$this->expectExceptionMessage("must extend " . \GT\Orm\Entity::class);
 		(new EntityMetadataFactory())->get($entity);
 	}
 
