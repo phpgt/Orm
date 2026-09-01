@@ -92,4 +92,51 @@ class SchemaField {
 	public function isUnique():bool {
 		return $this->unique ?? false;
 	}
+
+	public function equals(self $other):bool {
+		return $this->equalsExceptAutoIncrement($other)
+			&& $this->isAutoIncrement() === $other->isAutoIncrement();
+	}
+
+	public function equalsExceptAutoIncrement(self $other):bool {
+		return $this->getName() === $other->getName()
+			&& $this->getType() === $other->getType()
+			&& $this->isNullable() === $other->isNullable()
+			&& $this->hasDefaultValue() === $other->hasDefaultValue()
+			&& $this->getDefaultValue() === $other->getDefaultValue()
+			&& $this->isUnique() === $other->isUnique()
+			&& $this->foreignKeyEquals($other);
+	}
+
+	private function foreignKeyEquals(self $other):bool {
+		if($this->isForeignKey() !== $other->isForeignKey()) {
+			return false;
+		}
+		if(!$this->isForeignKey()) {
+			return true;
+		}
+
+		return $this->getForeignKeyReferenceTable()
+				=== $other->getForeignKeyReferenceTable()
+			&& $this->getForeignKeyReferenceField()
+				=== $other->getForeignKeyReferenceField();
+	}
+
+	public function copy():self {
+		$field = new self($this->getName());
+		$field->setType($this->requireType());
+		$field->setNullable($this->isNullable());
+		$field->setAutoIncrement($this->isAutoIncrement());
+		$field->setUnique($this->isUnique());
+		if($this->hasDefaultValue()) {
+			$field->setDefaultValue($this->getDefaultValue());
+		}
+		if($this->isForeignKey()) {
+			$field->setForeignKeyReference(
+				$this->getForeignKeyReferenceTable(),
+				$this->getForeignKeyReferenceField(),
+			);
+		}
+		return $field;
+	}
 }

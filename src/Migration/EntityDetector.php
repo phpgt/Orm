@@ -17,9 +17,12 @@ class EntityDetector {
 		string $tableClass = Entity::class,
 	):array {
 		$realDirectory = realpath($dir);
+		if($realDirectory === false || !is_dir($realDirectory)) {
+			return [];
+		}
 		$phpFileIterator = new RegexIterator(
 			new RecursiveIteratorIterator(
-				new RecursiveDirectoryIterator($dir)
+				new RecursiveDirectoryIterator($realDirectory)
 			),
 			'/^.+\.php$/i',
 			RegexIterator::GET_MATCH
@@ -48,6 +51,7 @@ class EntityDetector {
 			array_push($declaredTableClassList, $className);
 		}
 
+		sort($declaredTableClassList);
 		return $declaredTableClassList;
 	}
 

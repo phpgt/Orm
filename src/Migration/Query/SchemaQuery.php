@@ -41,39 +41,38 @@ abstract class SchemaQuery {
 			}
 
 			$sql .= "\n";
-			$columnSql = $this->templateColumnDef;
-
-			$columnSql = $this->inject(
-				$columnSql,
-				"columnName",
-				$field->getName(),
-			);
-
-			$columnSql = $this->inject(
-				$columnSql,
-				"columnType",
-				$this->type($field->requireType()),
-			);
-
-// TODO: Firstly, map all of the allowed constraints here.
-// IMPORTANT: A null/not null with default IS actually a constraint... so it should probably just go here instead of having its own named part called columnNullDefault
-// Each constraint can be checked and concatenated individually.
-// ... then, check syntax for MySQL and SQLite individually and override things as necessary!
-// https://www.sqlite.org/lang_createtable.html - see column-def -> column-constraint
-
-			$columnSql = $this->inject(
-				$columnSql,
-				"columnConstraint",
-				$this->generateColumnConstraint($field),
-			);
-
-			$sql .= $this->tidyWhitespace($columnSql);
+			$sql .= $this->generateColumnDefinition($field);
 		}
 
 		return $this->tidyWhitespace($sql);
 	}
 
-	public function generateColumnConstraint(SchemaField $field):string {
+	public function generateColumnDefinition(
+		SchemaField $field,
+		bool $includePrimaryKey = true,
+	):string {
+		$columnSql = $this->inject(
+			$this->templateColumnDef,
+			"columnName",
+			$field->getName(),
+		);
+		$columnSql = $this->inject(
+			$columnSql,
+			"columnType",
+			$this->type($field->requireType()),
+		);
+		$columnSql = $this->inject(
+			$columnSql,
+			"columnConstraint",
+			$this->generateColumnConstraint($field, $includePrimaryKey),
+		);
+		return trim($this->tidyWhitespace($columnSql));
+	}
+
+	public function generateColumnConstraint(
+		SchemaField $field,
+		bool $includePrimaryKey = true,
+	):string {
 		$constraintSql = $this->templateColumnConstraint;
 
 		$nullableInjection = $field->isNullable() ? "null" : "not null";
@@ -107,8 +106,9 @@ abstract class SchemaQuery {
 			$autoincrement = $field->isAutoIncrement()
 				? " " . $this->columnDefPartAutoIncrement
 				: "";
-
-			$primaryKeyInjection = "primary key$autoincrement";
+			$primaryKeyInjection = $includePrimaryKey
+				? "primary key$autoincrement"
+				: trim($autoincrement);
 		}
 		$constraintSql = $this->inject(
 			$constraintSql,

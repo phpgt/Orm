@@ -55,6 +55,11 @@ class SchemaGenerator {
 		return array_values($tableList);
 	}
 
+	/** @param object|class-string ...$entityList */
+	public function generateSchema(object|string ...$entityList):Schema {
+		return new Schema(...$this->generateAll(...$entityList));
+	}
+
 	/**
 	 * @param object|class-string $entity
 	 * @return array<SchemaTable>

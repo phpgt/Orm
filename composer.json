@@ -4,6 +4,8 @@
 	"license": "MIT",
 	"require": {
 		"ext-pdo": "*",
+		"phpgt/cli": "^1.4",
+		"phpgt/config": "^1.2",
 		"phpgt/sqlbuilder": "^1.1",
 		"phpgt/database": "^1.8"
 	},

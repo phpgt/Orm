@@ -15,6 +15,11 @@ class EntityDetectorTest extends TestCase {
 		self::assertEmpty($sut->getEntityClassList($tmpDir));
 	}
 
+	public function testGetEntityClassList_missingDirectory():void {
+		$sut = new EntityDetector();
+		self::assertSame([], $sut->getEntityClassList("/path/that/does/not/exist"));
+	}
+
 	public function testGetEntityClassList():void {
 		$dir = "test/phpunit/TestProject/EntityDetectorTest";
 		$sut = new EntityDetector();
@@ -23,5 +28,9 @@ class EntityDetectorTest extends TestCase {
 		self::assertContains(OrderEntity::class, $detected);
 		self::assertContains(PersonEntity::class, $detected);
 		self::assertNotContains(NotAnEntity::class, $detected);
+		self::assertSame($detected, array_values(array_unique($detected)));
+		$sorted = $detected;
+		sort($sorted);
+		self::assertSame($sorted, $detected);
 	}
 }

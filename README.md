@@ -19,6 +19,45 @@ For example:
 $db->executeSQL($studentSchemaTable);
 ```
 
+For persistent projects, use `OrmMigrator` instead. It stores complete,
+timestamped schema snapshots in its own `_orm` table, compares the latest
+snapshot with the current entity classes, and only executes a migration when
+the logical schema has changed:
+
+```php
+$migrator = new OrmMigrator($database);
+$migrator->migrate(Student::class, Lesson::class);
+```
+
+Calling `migrate()` again with the same entities is a no-op. Existing projects
+that already have matching tables can establish their initial snapshot once,
+before changing any entity classes:
+
+```php
+$migrator->baseline(Student::class, Lesson::class);
+```
+
+The entity list is authoritative. Removing an entity from it describes a table
+removal, which is considered destructive and will not be applied automatically.
+Likewise, adding a non-nullable property without a SQL default is reported as
+requiring explicit data handling rather than inventing values for existing
+rows. The ORM's `_orm` history is independent of Database's `_migration` table.
+
+In a WebEngine project, `gt migrate` discovers Entity classes from
+`app.class_dir` (or the optional `orm.entity_path` setting) and performs this
+workflow automatically. SQL files in `query/_migration` and ORM migrations are
+both optional and independent; when both exist, SQL migrations run first.
+
+```ini
+[orm]
+migrate=true
+; entity_path=class
+```
+
+Use `gt migrate --orm-plan` to inspect a change, `--no-orm` to run only SQL
+migrations, or `--orm-baseline` once when adopting ORM history for existing
+matching tables.
+
 Here's an example of what the `Student` class looks like, and how the `SchemaGenerator` stringifies it as SQLite:
 
 ```php
