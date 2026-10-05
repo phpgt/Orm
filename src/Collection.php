@@ -10,12 +10,12 @@ use Traversable;
 /**
  * @template TKey of array-key
  * @template TValue of Entity
- * @implements ArrayAccess<TKey, TValue>
- * @implements IteratorAggregate<TKey, TValue>
+ * @implements ArrayAccess<int|TKey, TValue>
+ * @implements IteratorAggregate<int|TKey, TValue>
  */
 class Collection implements ArrayAccess, Countable, IteratorAggregate {
 	/**
-	 * @param array<TKey, TValue> $itemList
+	 * @param array<int|TKey, TValue> $itemList
 	 */
 	public function __construct(
 		protected array $itemList = [],
@@ -25,18 +25,18 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate {
 		return count($this->itemList);
 	}
 
-	/** @return Traversable<TKey, TValue> */
+	/** @return ArrayIterator<int|TKey, TValue> */
 	public function getIterator():Traversable {
 		return new ArrayIterator($this->itemList);
 	}
 
-	/** @param TKey $offset */
+	/** @param int|TKey $offset */
 	public function offsetExists(mixed $offset):bool {
 		return isset($this->itemList[$offset]);
 	}
 
 	/**
-	 * @param TKey $offset
+	 * @param int|TKey $offset
 	 * @return TValue
 	 */
 	public function offsetGet(mixed $offset):mixed {
@@ -44,7 +44,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate {
 	}
 
 	/**
-	 * @param ?TKey $offset
+	 * @param int|TKey|null $offset
 	 * @param TValue $value
 	 */
 	public function offsetSet(mixed $offset, mixed $value):void {
@@ -56,7 +56,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate {
 		}
 	}
 
-	/** @param TKey $offset */
+	/** @param int|TKey $offset */
 	public function offsetUnset(mixed $offset):void {
 		unset($this->itemList[$offset]);
 	}

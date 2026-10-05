@@ -60,5 +60,10 @@
 			"type": "github",
 			"url": "https://github.com/sponsors/PhpGt"
 		}
-	]
+	],
+	"config": {
+		"platform": {
+			"php": "8.4.1"
+		}
+	}
 }

@@ -2,9 +2,9 @@
 namespace GT\Orm\Test;
 
 use DateTimeImmutable;
-use Gt\Database\Database;
-use Gt\Database\Result\ResultSet;
-use Gt\Database\Result\Row;
+use GT\Database\Database;
+use GT\Database\Result\ResultSet;
+use GT\Database\Result\Row;
 use GT\Orm\Repository;
 use GT\Orm\Test\TestProject\ForeignKeys\University\Department;
 use GT\Orm\Test\TestProject\ForeignKeys\University\Student;
@@ -13,9 +13,9 @@ use GT\Orm\Test\TestProject\Metadata\CustomPrimaryKeyEntity;
 use GT\Orm\Test\TestProject\Metadata\EntityStatus;
 use GT\Orm\Test\TestProject\Metadata\EnumEntity;
 use GT\Orm\Test\TestProject\Metadata\TemporalEntity;
-use Gt\SqlBuilder\Condition\AndCondition;
-use Gt\SqlBuilder\Condition\OrCondition;
-use Gt\SqlBuilder\SelectBuilder;
+use GT\SqlBuilder\Condition\AndCondition;
+use GT\SqlBuilder\Condition\OrCondition;
+use GT\SqlBuilder\SelectBuilder;
 use PHPUnit\Framework\TestCase;
 
 class RepositoryTest extends TestCase {
