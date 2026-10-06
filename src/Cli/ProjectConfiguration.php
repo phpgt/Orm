@@ -2,8 +2,8 @@
 namespace GT\Orm\Cli;
 
 use Gt\Cli\Argument\ArgumentValueList;
-use Gt\Config\Config;
-use Gt\Config\ConfigFactory;
+use GT\Config\Config;
+use GT\Config\ConfigFactory;
 use GT\Database\Connection\Settings;
 use GT\Database\Database;
 use GT\Database\Migration\Migrator as DatabaseMigrator;
