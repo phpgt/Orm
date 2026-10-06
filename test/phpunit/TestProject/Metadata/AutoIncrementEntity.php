@@ -6,7 +6,7 @@ use GT\Orm\Attribute\AutoIncrementPrimaryKey;
 use GT\Orm\Attribute\DefaultValue;
 use GT\Orm\Entity;
 
-readonly class AutoIncrementEntity implements Entity {
+readonly class AutoIncrementEntity extends Entity {
 	#[AutoIncrementPrimaryKey]
 	public int $id;
 

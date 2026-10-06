@@ -50,6 +50,24 @@ class RepositoryTest extends TestCase {
 		self::assertSame("Ada", $entity->name);
 	}
 
+	public function testFetch_noMatchingRow():void {
+		$resultSet = self::createMock(ResultSet::class);
+		$resultSet->expects(self::once())
+			->method("fetch")
+			->willReturn(null);
+		$database = self::createMock(Database::class);
+		$database->expects(self::once())
+			->method("executeSql")
+			->willReturn($resultSet);
+
+		$entity = (new Repository($database))->fetch(
+			CustomPrimaryKeyEntity::class,
+			"MISSING",
+		);
+
+		self::assertNull($entity);
+	}
+
 	public function testFetch_matchFieldValue():void {
 		$row = self::createStub(Row::class);
 		$row->method("contains")->willReturn(true);
@@ -314,6 +332,7 @@ class RepositoryTest extends TestCase {
 				["id", true],
 				["firstName", true],
 				["lastName", true],
+				["coursesAssigned", false],
 			]);
 		$rowTeacher->method("get")
 			->willReturnMap([
@@ -358,6 +377,7 @@ class RepositoryTest extends TestCase {
 				$rowCourse1,
 				$rowCourse2,
 				$rowCourse3,
+				null,
 			);
 		$resultSetCourseDetails = self::createMock(ResultSet::class);
 		$resultSetCourseDetails->expects(self::once())

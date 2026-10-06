@@ -2,6 +2,7 @@
 namespace GT\Orm\Test\Migration;
 
 use GT\Orm\Migration\SchemaField;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -26,6 +27,20 @@ class SchemaFieldTest extends TestCase {
 		$sut = new SchemaField("test");
 		$sut->setType(stdClass::class);
 		self::assertSame(stdClass::class, $sut->getType());
+	}
+
+	public function testRequireType():void {
+		$sut = new SchemaField("test");
+		$sut->setType("string");
+		self::assertSame("string", $sut->requireType());
+	}
+
+	public function testRequireType_noType():void {
+		$sut = new SchemaField("test");
+		$this->expectException(LogicException::class);
+		$this->expectExceptionMessage("Schema field test does not have a type");
+
+		$sut->requireType();
 	}
 
 	public function testNullable_notNullableByDefault():void {

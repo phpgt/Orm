@@ -2,6 +2,29 @@
 namespace GT\Orm\Metadata;
 
 class ColumnName {
+	/**
+	 * @return array{string, string, string} Junction table, owner column, item column
+	 */
+	public function junction(
+		string $ownerTable,
+		string $ownerPrimaryKey,
+		string $propertyName,
+		string $itemTable,
+		string $itemPrimaryKey,
+	):array {
+		return [
+			$this->junctionTable($ownerTable, $propertyName, $itemTable),
+			$this->junctionForeignKey($ownerTable, $ownerPrimaryKey),
+			$this->junctionItemForeignKey(
+				$ownerTable,
+				$ownerPrimaryKey,
+				$propertyName,
+				$itemTable,
+				$itemPrimaryKey,
+			),
+		];
+	}
+
 	public function foreignKey(
 		string $propertyName,
 		string $foreignTableName,

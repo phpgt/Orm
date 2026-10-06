@@ -4,7 +4,7 @@ namespace GT\Orm\Test\TestProject\ForeignKeys\University;
 use DateTime;
 use GT\Orm\Entity;
 
-readonly class Student implements Entity {
+readonly class Student extends Entity {
 	private string $password;
 
 	public function __construct(

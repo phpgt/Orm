@@ -43,7 +43,7 @@ class PropertyTypeClassifier {
 		$itemClassName = $this->classNameResolver->resolve($refClass, $match[1]);
 		if($itemClassName === null || !is_a($itemClassName, Entity::class, true)) {
 			throw new InvalidCollectionException(
-				"Collection $collectionClassName item type {$match[1]} must implement " . Entity::class,
+				"Collection $collectionClassName item type {$match[1]} must extend " . Entity::class,
 			);
 		}
 

@@ -8,7 +8,12 @@ use ReflectionEnum;
 class BackedEnumMetadata {
 	public function backingType(string $className):string {
 		$className = $this->requireClassName($className);
-		return (new ReflectionEnum($className))->getBackingType()->getName();
+		$backingType = (new ReflectionEnum($className))->getBackingType();
+		if($backingType === null) {
+			throw new LogicException("Property type $className is not a backed enumeration");
+		}
+
+		return $backingType->getName();
 	}
 
 	public function fromDatabase(

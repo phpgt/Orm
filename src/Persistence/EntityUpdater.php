@@ -3,11 +3,14 @@ namespace GT\Orm\Persistence;
 
 use GT\Database\Database;
 use GT\Orm\Entity;
+use GT\Orm\Exception\InvalidEntityStateException;
 use GT\Orm\Exception\InvalidEntityChangeException;
 use GT\Orm\Metadata\ColumnName;
 use GT\Orm\Metadata\EntityMetadata;
 use GT\Orm\Metadata\EntityMetadataFactory;
 use GT\Orm\Metadata\PropertyMetadata;
+use GT\Orm\Query\QueryMatch;
+use GT\SqlBuilder\Condition\Condition;
 use GT\SqlBuilder\UpdateBuilder;
 
 class EntityUpdater {
@@ -22,28 +25,24 @@ class EntityUpdater {
 	/**
 	 * @template T of Entity
 	 * @param T $entity
-	 * @param array<string, mixed> $changeList
 	 * @return T
 	 */
-	public function update(Entity $entity, array $changeList):Entity {
-		if($changeList === []) {
-			return $entity;
-		}
-
+	public function update(Entity $entity):Entity {
 		$metadata = $this->metadataFactory->get($entity);
 		$primaryKey = $metadata->requirePrimaryKey();
 		$primaryKeyValue = $this->requiredPrimaryKeyValue($entity, $primaryKey);
-		$propertyList = $this->changedPropertyList($metadata, $changeList);
-		$replacement = $this->createReplacement(
-			$entity,
-			$metadata,
-			$propertyList,
-			$changeList,
-		);
 		$valueList = [];
-		foreach($propertyList as $propertyMetadata) {
+		foreach($metadata->getPropertyList() as $propertyMetadata) {
+			if($propertyMetadata->isPrimaryKey()
+				|| $propertyMetadata->isCollection()) {
+				continue;
+			}
+
 			$valueList[$this->propertyColumnName($propertyMetadata)] = $this->valueMapper
-				->propertyValue($replacement, $propertyMetadata);
+				->propertyValue($entity, $propertyMetadata);
+		}
+		if($valueList === []) {
+			return $entity;
 		}
 
 		$this->transactionRunner->run(function() use (
@@ -60,79 +59,70 @@ class EntityUpdater {
 			);
 		});
 
-		return $replacement;
+		return $entity;
 	}
 
 	/**
+	 * @param class-string<Entity> $className
 	 * @param array<string, mixed> $changeList
-	 * @return array<string, PropertyMetadata>
+	 * @param array<bool|int|string|Condition> $match
 	 */
-	private function changedPropertyList(
-		EntityMetadata $metadata,
+	public function updateMatching(
+		string $className,
 		array $changeList,
-	):array {
-		$propertyList = [];
+		array $match,
+	):int {
+		$metadata = $this->metadataFactory->get($className);
+		$primaryKey = $metadata->requirePrimaryKey();
+		$propertyMap = [];
 		foreach($metadata->getPropertyList() as $propertyMetadata) {
-			$propertyList[$propertyMetadata->getName()] = $propertyMetadata;
+			$propertyMap[$propertyMetadata->getName()] = $propertyMetadata;
 		}
 
-		$changedPropertyList = [];
-		foreach(array_keys($changeList) as $propertyName) {
-			if(!isset($propertyList[$propertyName])) {
+		$valueList = [];
+		foreach($changeList as $propertyName => $value) {
+			$propertyMetadata = $propertyMap[$propertyName] ?? null;
+			if($propertyMetadata === null) {
 				throw new InvalidEntityChangeException(
-					"Entity {$metadata->getClassName()} does not have a persistent property named $propertyName",
+					"Entity $className does not have a persistent property named $propertyName",
 				);
 			}
-
-			$propertyMetadata = $propertyList[$propertyName];
 			if($propertyMetadata->isPrimaryKey()) {
 				throw new InvalidEntityChangeException(
-					"Primary key {$metadata->getClassName()}::\$$propertyName cannot be updated",
+					"Primary key $className::\$$propertyName cannot be updated",
 				);
 			}
 			if($propertyMetadata->isCollection()) {
 				throw new InvalidEntityChangeException(
-					"Collection {$metadata->getClassName()}::\$$propertyName cannot be updated as a row",
+					"Collection $className::\$$propertyName cannot be updated as a row",
 				);
 			}
-
-			$changedPropertyList[$propertyName] = $propertyMetadata;
-		}
-
-		return $changedPropertyList;
-	}
-
-	/**
-	 * @template T of Entity
-	 * @param T $entity
-	 * @param array<string, PropertyMetadata> $changedPropertyList
-	 * @param array<string, mixed> $changeList
-	 * @return T
-	 */
-	private function createReplacement(
-		Entity $entity,
-		EntityMetadata $metadata,
-		array $changedPropertyList,
-		array $changeList,
-	):Entity {
-		$replacement = $metadata->copyWithoutProperties(
-			$entity,
-			array_keys($changedPropertyList),
-		);
-
-		foreach($changedPropertyList as $propertyName => $propertyMetadata) {
-			$value = $changeList[$propertyName];
 			if(!$propertyMetadata->acceptsValue($value)) {
-				$className = $entity::class;
 				throw new InvalidEntityChangeException(
 					"Value for $className::\$$propertyName does not match its PHP type",
 				);
 			}
 
-			$propertyMetadata->getProperty()->setValue($replacement, $value);
+			$parameterName = "__orm_set_" . $this->propertyColumnName($propertyMetadata);
+			$valueList[$parameterName] = $this->valueMapper->value(
+				$propertyMetadata,
+				$value,
+			);
 		}
 
-		return $replacement;
+		$queryMatch = new QueryMatch($primaryKey->getName(), ...$match);
+		$builder = new UpdateBuilder();
+		$builder->table($metadata->getTableName());
+		$builder->__call("set", [$this->matchingPlaceholderList($valueList)]);
+		$builder->__call("where", $queryMatch->getConditionList());
+		$parameters = array_merge($valueList, $queryMatch->getParameters());
+
+		return $this->transactionRunner->run(
+			fn() => $this->database->executeSql(
+				(string)$builder,
+				$parameters,
+			)->affectedRows(),
+		);
 	}
 
 	/** @param array<string, bool|int|float|string|null> $valueList */
@@ -144,9 +134,9 @@ class EntityUpdater {
 	):void {
 		$primaryKeyParameter = "__orm_primary_key";
 		$builder = new UpdateBuilder();
-		$builder->table($metadata->getTableName())
-			->set(...$this->placeholderList($valueList))
-			->where("{$primaryKey->getName()} = :$primaryKeyParameter");
+		$builder->table($metadata->getTableName());
+		$builder->__call("set", [$this->placeholderList($valueList)]);
+		$builder->where("{$primaryKey->getName()} = :$primaryKeyParameter");
 		$valueList[$primaryKeyParameter] = $this->valueMapper->value(
 			$primaryKey,
 			$primaryKeyValue,
@@ -161,7 +151,7 @@ class EntityUpdater {
 		$value = $this->valueMapper->propertyValue($entity, $primaryKey);
 		if(!is_int($value) && !is_string($value)) {
 			$className = $entity::class;
-			throw new InvalidEntityChangeException(
+			throw new InvalidEntityStateException(
 				"Entity $className does not have a valid primary key",
 			);
 		}
@@ -191,5 +181,19 @@ class EntityUpdater {
 			fn(string $columnName) => ":$columnName",
 			array_keys($valueList),
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $valueList
+	 * @return array<string, string>
+	 */
+	private function matchingPlaceholderList(array $valueList):array {
+		$placeholderList = [];
+		foreach(array_keys($valueList) as $parameterName) {
+			$columnName = substr($parameterName, strlen("__orm_set_"));
+			$placeholderList[$columnName] = ":$parameterName";
+		}
+
+		return $placeholderList;
 	}
 }

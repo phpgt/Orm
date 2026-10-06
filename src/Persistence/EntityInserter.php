@@ -126,16 +126,7 @@ class EntityInserter {
 		$itemMetadata = $this->metadataFactory->get($itemClassName);
 		$itemPrimaryKey = $itemMetadata->requirePrimaryKey();
 		$ownerPrimaryKey = $ownerMetadata->requirePrimaryKey();
-		$junctionTable = $this->columnName->junctionTable(
-			$ownerMetadata->getTableName(),
-			$collectionMetadata->getName(),
-			$itemMetadata->getTableName(),
-		);
-		$ownerColumn = $this->columnName->junctionForeignKey(
-			$ownerMetadata->getTableName(),
-			$ownerPrimaryKey->getName(),
-		);
-		$itemColumn = $this->columnName->junctionItemForeignKey(
+		[$junctionTable, $ownerColumn, $itemColumn] = $this->columnName->junction(
 			$ownerMetadata->getTableName(),
 			$ownerPrimaryKey->getName(),
 			$collectionMetadata->getName(),
@@ -144,7 +135,7 @@ class EntityInserter {
 		);
 
 		foreach($collection as $item) {
-			if(!$item instanceof $itemClassName) {
+			if(!$item instanceof Entity || !$item instanceof $itemClassName) {
 				$className = $entity::class;
 				throw new InvalidEntityStateException(
 					"Collection $className::\${$collectionMetadata->getName()} can only contain $itemClassName",

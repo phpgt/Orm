@@ -52,7 +52,7 @@ abstract class SchemaQuery {
 			$columnSql = $this->inject(
 				$columnSql,
 				"columnType",
-				$this->type($field->getType()),
+				$this->type($field->requireType()),
 			);
 
 // TODO: Firstly, map all of the allowed constraints here.

@@ -4,13 +4,14 @@ namespace GT\Orm\Metadata;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
+use GT\Orm\Entity;
 use LogicException;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
 
 readonly class PropertyMetadata {
-	/** @param ?class-string $collectionItemClassName */
+	/** @param ?class-string<Entity> $collectionItemClassName */
 	public function __construct(
 		private ReflectionProperty $property,
 		private ReflectionNamedType $type,
@@ -76,7 +77,7 @@ readonly class PropertyMetadata {
 		}
 	}
 
-	/** @return class-string */
+	/** @return class-string<Entity> */
 	public function getCollectionItemClassName():string {
 		if($this->collectionItemClassName === null) {
 			throw new LogicException(

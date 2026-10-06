@@ -4,16 +4,16 @@ namespace GT\Orm\Query;
 use GT\SqlBuilder\Condition\Condition;
 use GT\SqlBuilder\SelectBuilder;
 class FetchQuery extends SelectBuilder {
-	/** @var array<string, int|string> */
+	/** @var array<string, bool|int|string|null> */
 	private array $parameters = [];
 	private int|string|null $cacheKey = null;
 
 	/**
-	 * @param int|string|Condition ...$match
+	 * @param bool|int|string|array<string, bool|int|string|null>|Condition ...$match
 	 */
 	public function match(
 		string $primaryKey,
-		int|string|Condition... $match,
+		bool|int|string|array|Condition... $match,
 	):self {
 		$queryMatch = new QueryMatch(
 			$primaryKey,
@@ -29,7 +29,7 @@ class FetchQuery extends SelectBuilder {
 		return parent::__call("where", $conditionList);
 	}
 
-	/** @return array<string, int|string> */
+	/** @return array<string, bool|int|string|null> */
 	public function getParameters():array {
 		return $this->parameters;
 	}
