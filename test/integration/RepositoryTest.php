@@ -1,5 +1,5 @@
 <?php
-namespace GT\Orm\Test;
+namespace GT\Orm\Test\Integration;
 
 use DateTimeImmutable;
 use DateTimeZone;
@@ -23,9 +23,9 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-class RepositoryPersistenceTest extends TestCase {
+class RepositoryTest extends TestCase {
 	private Database $database;
-	private Repository $repository;
+	private Repository $sut;
 
 	protected function setUp():void {
 		$this->database = new Database();
@@ -37,10 +37,10 @@ class RepositoryPersistenceTest extends TestCase {
 			DefaultOnlyEntity::class,
 			UninitialisedEntity::class,
 		);
-		$this->repository = new Repository($this->database);
+		$this->sut = new Repository($this->database);
 	}
 
-	public function testInsertMapsNativeValuesAndInitialisesGeneratedId():void {
+	public function testInsert_MapsNativeValuesAndInitialisesGeneratedId():void {
 		$dateOfBirth = new DateTimeImmutable(
 			"2000-01-02 03:04:05.123456",
 			new DateTimeZone("America/New_York"),
@@ -52,7 +52,7 @@ class RepositoryPersistenceTest extends TestCase {
 			StudentStatus::INACTIVE,
 		);
 
-		$result = $this->repository->insert($student);
+		$result = $this->sut->insert($student);
 
 		self::assertSame($student, $result);
 		self::assertSame(1, $student->id);
@@ -66,22 +66,22 @@ class RepositoryPersistenceTest extends TestCase {
 		self::assertNull($row["nickname"]);
 	}
 
-	public function testInsertAssignsSuccessiveIds():void {
-		$first = $this->repository->insert($this->newStudent("First"));
-		$second = $this->repository->insert($this->newStudent("Second"));
+	public function testInsert_AssignsSuccessiveIds():void {
+		$first = $this->sut->insert($this->newStudent("First"));
+		$second = $this->sut->insert($this->newStudent("Second"));
 
 		self::assertSame(1, $first->id);
 		self::assertSame(2, $second->id);
 	}
 
-	public function testDeleteByPrimaryKey():void {
-		$entity = $this->repository->insert(
+	public function testDelete_ByPrimaryKey():void {
+		$entity = $this->sut->insert(
 			new ManualKeyEntity("known-key", "old value"),
 		);
 
 		self::assertSame(
 			1,
-			$this->repository->delete(ManualKeyEntity::class, "known-key"),
+			$this->sut->delete(ManualKeyEntity::class, "known-key"),
 		);
 		self::assertSame(0, $this->scalar(
 			"select count(*) from ManualKeyEntity",
@@ -91,7 +91,7 @@ class RepositoryPersistenceTest extends TestCase {
 			"insert into ManualKeyEntity (id, value) values (:id, :value)",
 			["id" => "known-key", "value" => "new value"],
 		);
-		$fetched = $this->repository->fetch(
+		$fetched = $this->sut->fetch(
 			ManualKeyEntity::class,
 			"known-key",
 		);
@@ -99,13 +99,13 @@ class RepositoryPersistenceTest extends TestCase {
 		self::assertSame("new value", $fetched->value);
 	}
 
-	public function testDeleteByFieldValue():void {
-		$this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert($this->newStudent("Grace"));
+	public function testDelete_ByFieldValue():void {
+		$this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert($this->newStudent("Grace"));
 
 		self::assertSame(
 			1,
-			$this->repository->delete(Student::class, "name", "Ada"),
+			$this->sut->delete(Student::class, "name", "Ada"),
 		);
 		self::assertSame(
 			["Grace"],
@@ -113,13 +113,13 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testDeleteByCondition():void {
-		$this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert($this->newStudent("Grace"));
+	public function testDelete_ByCondition():void {
+		$this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert($this->newStudent("Grace"));
 
 		self::assertSame(
 			1,
-			$this->repository->delete(
+			$this->sut->delete(
 				Student::class,
 				new AndCondition("name = 'Grace'"),
 			),
@@ -130,15 +130,15 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testDeleteRequiresMatch():void {
-		$this->repository->insert($this->newStudent("Ada"));
+	public function testDelete_RequiresMatch():void {
+		$this->sut->insert($this->newStudent("Ada"));
 
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage(
 			"Delete requires at least one non-empty match condition",
 		);
 		try {
-			$this->repository->delete(Student::class);
+			$this->sut->delete(Student::class);
 		}
 		finally {
 			self::assertSame(1, $this->scalar(
@@ -147,12 +147,12 @@ class RepositoryPersistenceTest extends TestCase {
 		}
 	}
 
-	public function testFetchAllReturnsGeneratorOfAllEntities():void {
-		$this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert($this->newStudent("Grace"));
-		$this->repository->insert($this->newStudent("Alan"));
+	public function testFetchAll_ReturnsGeneratorOfAllEntities():void {
+		$this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert($this->newStudent("Grace"));
+		$this->sut->insert($this->newStudent("Alan"));
 
-		$studentGenerator = $this->repository->fetchAll(Student::class);
+		$studentGenerator = $this->sut->fetchAll(Student::class);
 
 		self::assertInstanceOf(Generator::class, $studentGenerator);
 		self::assertSame(
@@ -164,25 +164,25 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testFetchAllByPrimaryKey():void {
-		$ada = $this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert($this->newStudent("Grace"));
+	public function testFetchAll_ByPrimaryKey():void {
+		$ada = $this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert($this->newStudent("Grace"));
 
 		$studentList = iterator_to_array(
-			$this->repository->fetchAll(Student::class, $ada->id),
+			$this->sut->fetchAll(Student::class, $ada->id),
 		);
 
 		self::assertCount(1, $studentList);
 		self::assertSame("Ada", $studentList[0]->name);
 	}
 
-	public function testFetchAllByFieldValue():void {
-		$this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert($this->newStudent("Grace"));
-		$this->repository->insert($this->newStudent("Ada"));
+	public function testFetchAll_ByFieldValue():void {
+		$this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert($this->newStudent("Grace"));
+		$this->sut->insert($this->newStudent("Ada"));
 
 		$studentList = iterator_to_array(
-			$this->repository->fetchAll(Student::class, "name", "Ada"),
+			$this->sut->fetchAll(Student::class, "name", "Ada"),
 		);
 
 		self::assertCount(2, $studentList);
@@ -190,16 +190,16 @@ class RepositoryPersistenceTest extends TestCase {
 		self::assertSame("Ada", $studentList[1]->name);
 	}
 
-	public function testFetchAllByCondition():void {
-		$this->repository->insert($this->newStudent("Ada"));
-		$this->repository->insert(new Student(
+	public function testFetchAll_ByCondition():void {
+		$this->sut->insert($this->newStudent("Ada"));
+		$this->sut->insert(new Student(
 			"Grace",
 			new DateTimeImmutable("2000-01-01"),
 			false,
 		));
 
 		$studentList = iterator_to_array(
-			$this->repository->fetchAll(
+			$this->sut->fetchAll(
 				Student::class,
 				new AndCondition("active = false"),
 			),
@@ -209,33 +209,33 @@ class RepositoryPersistenceTest extends TestCase {
 		self::assertSame("Grace", $studentList[0]->name);
 	}
 
-	public function testInsertSupportsDeveloperSuppliedPrimaryKey():void {
+	public function testInsert_SupportsDeveloperSuppliedPrimaryKey():void {
 		$entity = new ManualKeyEntity("known-key", "value");
 
-		self::assertSame($entity, $this->repository->insert($entity));
+		self::assertSame($entity, $this->sut->insert($entity));
 		self::assertSame(
 			["id" => "known-key", "value" => "value"],
 			$this->requiredRow("select * from ManualKeyEntity"),
 		);
 	}
 
-	public function testInsertUsesExplicitSqlDefaultWhenPropertyIsUninitialised():void {
-		$entity = $this->repository->insert(new DefaultOnlyEntity());
+	public function testInsert_UsesExplicitSqlDefaultWhenPropertyIsUninitialised():void {
+		$entity = $this->sut->insert(new DefaultOnlyEntity());
 
 		self::assertSame(1, $entity->id);
 		self::assertFalse(isset($entity->value));
-		$fetched = $this->repository->fetch(
+		$fetched = $this->sut->fetch(
 			DefaultOnlyEntity::class,
 			$entity->id,
 		);
 		self::assertSame("from database", $fetched->value);
 	}
 
-	public function testInitialisedPhpValueTakesPrecedenceOverSqlDefault():void {
+	public function testInsert_initialisedValueOverridesSqlDefault():void {
 		$entity = new DefaultOnlyEntity();
 		$entity->value = "from PHP";
 
-		$this->repository->insert($entity);
+		$this->sut->insert($entity);
 
 		self::assertSame(
 			"from PHP",
@@ -243,19 +243,19 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testInsertRejectsUninitialisedRequiredProperty():void {
+	public function testInsert_RejectsUninitialisedRequiredProperty():void {
 		$entity = new UninitialisedEntity();
 
 		$this->expectException(InvalidEntityStateException::class);
 		$this->expectExceptionMessage("UninitialisedEntity::\$value is not initialised");
-		$this->repository->insert($entity);
+		$this->sut->insert($entity);
 	}
 
-	public function testInsertRejectsAlreadyInitialisedGeneratedId():void {
-		$student = $this->repository->insert($this->newStudent("Ada"));
+	public function testInsert_RejectsAlreadyInitialisedGeneratedId():void {
+		$student = $this->sut->insert($this->newStudent("Ada"));
 
 		try {
-			$this->repository->insert($student);
+			$this->sut->insert($student);
 			self::fail("Expected an already initialised generated ID to be rejected");
 		}
 		catch(InvalidEntityStateException $exception) {
@@ -268,10 +268,10 @@ class RepositoryPersistenceTest extends TestCase {
 		self::assertSame(1, $this->scalar("select count(*) from Student"));
 	}
 
-	public function testInsertStoresRepeatedCollectionItemsInOrder():void {
-		$ada = $this->repository->insert($this->newStudent("Ada"));
-		$grace = $this->repository->insert($this->newStudent("Grace"));
-		$lesson = $this->repository->insert(new Lesson(
+	public function testInsert_StoresRepeatedCollectionItemsInOrder():void {
+		$ada = $this->sut->insert($this->newStudent("Ada"));
+		$grace = $this->sut->insert($this->newStudent("Grace"));
+		$lesson = $this->sut->insert(new Lesson(
 			"Databases",
 			new StudentCollection([$ada, $grace, $ada]),
 		));
@@ -297,7 +297,7 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testFailedCollectionInsertRollsBackEntityAndJunctionRows():void {
+	public function testInsert_failedCollectionRollsBackRows():void {
 		$wrongItem = new ManualKeyEntity("not-a-student", "value");
 		$lesson = new Lesson(
 			"Invalid lesson",
@@ -305,7 +305,7 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 
 		try {
-			$this->repository->insert($lesson);
+			$this->sut->insert($lesson);
 			self::fail("Expected the invalid collection item to be rejected");
 		}
 		catch(InvalidEntityStateException $exception) {
@@ -323,7 +323,7 @@ class RepositoryPersistenceTest extends TestCase {
 		);
 	}
 
-	public function testUnpersistedCollectionItemRollsBackInsert():void {
+	public function testInsert_unpersistedCollectionRollsBackRows():void {
 		$lesson = new Lesson(
 			"Invalid lesson",
 			new StudentCollection([$this->newStudent("Not persisted")]),
@@ -331,7 +331,7 @@ class RepositoryPersistenceTest extends TestCase {
 
 		$this->expectException(InvalidEntityStateException::class);
 		try {
-			$this->repository->insert($lesson);
+			$this->sut->insert($lesson);
 		}
 		finally {
 			self::assertFalse(isset($lesson->id));
@@ -339,12 +339,12 @@ class RepositoryPersistenceTest extends TestCase {
 		}
 	}
 
-	public function testInsertDoesNotCascadeRelatedEntity():void {
+	public function testInsert_DoesNotCascadeRelatedEntity():void {
 		$note = new StudentNote($this->newStudent("Not persisted"), "A note");
 
 		$this->expectException(InvalidEntityStateException::class);
 		try {
-			$this->repository->insert($note);
+			$this->sut->insert($note);
 		}
 		finally {
 			self::assertFalse(isset($note->id));
@@ -353,15 +353,15 @@ class RepositoryPersistenceTest extends TestCase {
 	}
 
 	public function testUpdateReturnsReadonlyReplacementAndRefreshesCache():void {
-		$student = $this->repository->insert($this->newStudent("Ada"));
+		$student = $this->sut->insert($this->newStudent("Ada"));
 
-		$updated = $this->repository->update($student, ["name" => "Ada King"]);
+		$updated = $this->sut->update($student, ["name" => "Ada King"]);
 
 		self::assertNotSame($student, $updated);
 		self::assertSame("Ada", $student->name);
 		self::assertSame("Ada King", $updated->name);
 		self::assertSame($student->id, $updated->id);
-		self::assertSame($updated, $this->repository->fetch(Student::class, 1));
+		self::assertSame($updated, $this->sut->fetch(Student::class, 1));
 		self::assertSame(
 			"Ada King",
 			$this->scalar("select name from Student where id = 1"),
@@ -369,21 +369,21 @@ class RepositoryPersistenceTest extends TestCase {
 	}
 
 	public function testUpdateMapsAllSupportedValueKinds():void {
-		$first = $this->repository->insert($this->newStudent("First"));
-		$second = $this->repository->insert($this->newStudent("Second"));
-		$note = $this->repository->insert(new StudentNote($first, "Original"));
+		$first = $this->sut->insert($this->newStudent("First"));
+		$second = $this->sut->insert($this->newStudent("Second"));
+		$note = $this->sut->insert(new StudentNote($first, "Original"));
 		$dateOfBirth = new DateTimeImmutable(
 			"2020-06-01 10:30:00",
 			new DateTimeZone("Europe/London"),
 		);
 
-		$updatedStudent = $this->repository->update($first, [
+		$updatedStudent = $this->sut->update($first, [
 			"dateOfBirth" => $dateOfBirth,
 			"active" => false,
 			"status" => StudentStatus::INACTIVE,
 			"nickname" => "A",
 		]);
-		$updatedNote = $this->repository->update($note, [
+		$updatedNote = $this->sut->update($note, [
 			"student" => $second,
 			"text" => "Updated",
 		]);
@@ -415,18 +415,18 @@ class RepositoryPersistenceTest extends TestCase {
 	public function testUpdateRejectsEntityWithoutInitialisedPrimaryKey():void {
 		$this->expectException(InvalidEntityStateException::class);
 		$this->expectExceptionMessage("Student::\$id is not initialised");
-		$this->repository->update($this->newStudent("Not persisted"), [
+		$this->sut->update($this->newStudent("Not persisted"), [
 			"name" => "Changed",
 		]);
 	}
 
 	public function testUpdateRejectsUnpersistedRelatedEntity():void {
-		$student = $this->repository->insert($this->newStudent("Persisted"));
-		$note = $this->repository->insert(new StudentNote($student, "Original"));
+		$student = $this->sut->insert($this->newStudent("Persisted"));
+		$note = $this->sut->insert(new StudentNote($student, "Original"));
 
 		$this->expectException(InvalidEntityStateException::class);
 		try {
-			$this->repository->update($note, [
+			$this->sut->update($note, [
 				"student" => $this->newStudent("Not persisted"),
 			]);
 		}
@@ -437,11 +437,11 @@ class RepositoryPersistenceTest extends TestCase {
 		}
 	}
 
-	public function testInsertParticipatesInExistingTransaction():void {
+	public function testInsert_ParticipatesInExistingTransaction():void {
 		$connection = $this->database->getDriver()->getConnection();
 		$connection->beginTransaction();
 
-		$this->repository->insert(new ManualKeyEntity("transactional", "value"));
+		$this->sut->insert(new ManualKeyEntity("transactional", "value"));
 
 		self::assertTrue($connection->inTransaction());
 		$connection->rollBack();
@@ -451,9 +451,9 @@ class RepositoryPersistenceTest extends TestCase {
 	}
 
 	public function testUpdateWithNoChangesReturnsOriginalEntity():void {
-		$student = $this->repository->insert($this->newStudent("Ada"));
+		$student = $this->sut->insert($this->newStudent("Ada"));
 
-		self::assertSame($student, $this->repository->update($student, []));
+		self::assertSame($student, $this->sut->update($student, []));
 	}
 
 	/** @param array<string, mixed> $changeList */
@@ -462,10 +462,10 @@ class RepositoryPersistenceTest extends TestCase {
 		array $changeList,
 		string $message,
 	):void {
-		$student = $this->repository->insert($this->newStudent("Ada"));
+		$student = $this->sut->insert($this->newStudent("Ada"));
 
 		try {
-			$this->repository->update($student, $changeList);
+			$this->sut->update($student, $changeList);
 			self::fail("Expected the invalid change to be rejected");
 		}
 		catch(InvalidEntityChangeException $exception) {
@@ -487,14 +487,14 @@ class RepositoryPersistenceTest extends TestCase {
 	}
 
 	public function testUpdateRejectsCollectionChanges():void {
-		$lesson = $this->repository->insert(new Lesson(
+		$lesson = $this->sut->insert(new Lesson(
 			"Databases",
 			new StudentCollection(),
 		));
 
 		$this->expectException(InvalidEntityChangeException::class);
 		$this->expectExceptionMessage("cannot be updated as a row");
-		$this->repository->update($lesson, [
+		$this->sut->update($lesson, [
 			"students" => new StudentCollection(),
 		]);
 	}

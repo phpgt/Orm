@@ -10,12 +10,13 @@ use GT\Orm\Migration\SchemaTable;
 use PHPUnit\Framework\TestCase;
 
 class SchemaDifferTest extends TestCase {
-	public function testIdenticalSchemasHaveNoChanges():void {
+	public function testDiff_IdenticalSchemasHaveNoChanges():void {
+		$sut = new SchemaDiffer();
 		$schema = new Schema($this->studentTable());
-		self::assertTrue((new SchemaDiffer())->diff($schema, $schema)->isEmpty());
+		self::assertTrue($sut->diff($schema, $schema)->isEmpty());
 	}
 
-	public function testCreateAndDropTable():void {
+	public function testDiff_CreateAndDropTable():void {
 		$table = $this->studentTable();
 		$sut = new SchemaDiffer();
 
@@ -30,7 +31,8 @@ class SchemaDifferTest extends TestCase {
 		self::assertSame(SchemaChangeSafety::DESTRUCTIVE, $drop[0]->safety());
 	}
 
-	public function testAddNullableFieldIsSafe():void {
+	public function testDiff_AddNullableFieldIsSafe():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$email = new SchemaField("email");
@@ -38,7 +40,7 @@ class SchemaDifferTest extends TestCase {
 		$email->setNullable(true);
 		$after->addField($email);
 
-		$change = (new SchemaDiffer())
+		$change = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList()[0];
 
@@ -47,26 +49,28 @@ class SchemaDifferTest extends TestCase {
 		self::assertSame(SchemaChangeSafety::SAFE, $change->safety());
 	}
 
-	public function testAddRequiredFieldWithoutDefaultRequiresData():void {
+	public function testDiff_AddRequiredFieldWithoutDefaultRequiresData():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$email = new SchemaField("email");
 		$email->setType("string");
 		$after->addField($email);
 
-		$change = (new SchemaDiffer())
+		$change = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList()[0];
 
 		self::assertSame(SchemaChangeSafety::REQUIRES_DATA, $change->safety());
 	}
 
-	public function testAutoIncrementChangeIsAnAlteration():void {
+	public function testDiff_AutoIncrementChangeIsAnAlteration():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$after->getField("id")?->setAutoIncrement(true);
 
-		$change = (new SchemaDiffer())
+		$change = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList()[0];
 
@@ -75,12 +79,13 @@ class SchemaDifferTest extends TestCase {
 		self::assertSame(SchemaChangeSafety::SAFE, $change->safety());
 	}
 
-	public function testRemoveFieldIsDestructive():void {
+	public function testDiff_RemoveFieldIsDestructive():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$before->addField($this->field("email", true));
 
-		$change = (new SchemaDiffer())
+		$change = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList()[0];
 
@@ -88,12 +93,13 @@ class SchemaDifferTest extends TestCase {
 		self::assertSame(SchemaChangeSafety::DESTRUCTIVE, $change->safety());
 	}
 
-	public function testPrimaryKeyChangeIsDestructive():void {
+	public function testDiff_PrimaryKeyChangeIsDestructive():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$after->setPrimaryKey($after->getField("name"));
 
-		$changeList = (new SchemaDiffer())
+		$changeList = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList();
 
@@ -104,12 +110,13 @@ class SchemaDifferTest extends TestCase {
 		}
 	}
 
-	public function testDefaultChangeIsDetected():void {
+	public function testDiff_DefaultChangeIsDetected():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$after->getField("name")?->setDefaultValue("");
 
-		$change = (new SchemaDiffer())
+		$change = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList()[0];
 
@@ -117,13 +124,14 @@ class SchemaDifferTest extends TestCase {
 		self::assertSame(SchemaChangeSafety::DESTRUCTIVE, $change->safety());
 	}
 
-	public function testChangeOrderIsDeterministic():void {
+	public function testDiff_ChangeOrderIsDeterministic():void {
+		$sut = new SchemaDiffer();
 		$before = $this->studentTable();
 		$after = $this->studentTable();
 		$after->addField($this->field("zebra", true));
 		$after->addField($this->field("email", true));
 
-		$changeList = (new SchemaDiffer())
+		$changeList = $sut
 			->diff(new Schema($before), new Schema($after))
 			->getChangeList();
 

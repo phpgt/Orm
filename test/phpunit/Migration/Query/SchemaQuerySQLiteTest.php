@@ -1,12 +1,10 @@
 <?php
 namespace GT\Orm\Test\Migration\Query;
 
-use GT\Orm\Migration\Query\SchemaQueryMySQL;
 use GT\Orm\Migration\Query\SchemaQuerySQLite;
 use GT\Orm\Migration\SchemaField;
 use GT\Orm\Migration\SchemaTable;
 use GT\Orm\Test\SQLTestCase;
-use PHPUnit\Framework\TestCase;
 
 class SchemaQuerySQLiteTest extends SQLTestCase {
 	public function testGenerateSql():void {
@@ -67,8 +65,7 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 		$schemaTable->method("getFieldList")
 			->willReturn($fieldList);
 
-		$sutSqlite = new SchemaQuerySQLite($schemaTable);
-		$sutMySql = new SchemaQueryMySQL($schemaTable);
+		$sut = new SchemaQuerySQLite($schemaTable);
 
 		$expectedSqlite = <<<SQL
 		create table `TestTable` (
@@ -79,19 +76,8 @@ class SchemaQuerySQLiteTest extends SQLTestCase {
 
 		self::assertSameSQL(
 			$expectedSqlite,
-			$sutSqlite->generateSql(),
+			$sut->generateSql(),
 		);
 
-		$expectedMySql = <<<SQL
-		create table `TestTable` (
-			`id` int not null primary key auto_increment,
-			`name` text null
-		)
-		SQL;
-
-		self::assertSameSQL(
-			$expectedMySql,
-			$sutMySql->generateSql(),
-		);
 	}
 }

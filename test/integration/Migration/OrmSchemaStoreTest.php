@@ -1,5 +1,5 @@
 <?php
-namespace GT\Orm\Test\Migration;
+namespace GT\Orm\Test\Integration\Migration;
 
 use DateTimeImmutable;
 use DateTimeZone;
@@ -42,7 +42,7 @@ class OrmSchemaStoreTest extends TestCase {
 		self::assertNull($sut->latest());
 	}
 
-	public function testAppendAndRetrieveLatestSnapshot():void {
+	public function testAppend_retrievesLatestSnapshot():void {
 		$timeList = [
 			new DateTimeImmutable("2026-08-30T10:00:00Z"),
 			new DateTimeImmutable("2026-08-30T11:00:00Z"),
@@ -67,7 +67,7 @@ class OrmSchemaStoreTest extends TestCase {
 		self::assertSame(2, $this->historyCount());
 	}
 
-	public function testTimestampIsStoredInUtc():void {
+	public function testAppend_storesUtcTimestamp():void {
 		$sut = new OrmSchemaStore(
 			$this->database,
 			clock: fn() => new DateTimeImmutable(
@@ -81,7 +81,7 @@ class OrmSchemaStoreTest extends TestCase {
 		self::assertSame("2026-08-30T11:34:56.123456Z", $record->migratedAt);
 	}
 
-	public function testDifferentSchemasCanShareATimestamp():void {
+	public function testAppend_handlesSharedTimestamp():void {
 		$sut = new OrmSchemaStore(
 			$this->database,
 			clock: fn() => new DateTimeImmutable("2026-08-30T12:00:00Z"),

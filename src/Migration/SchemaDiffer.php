@@ -17,6 +17,7 @@ class SchemaDiffer {
 				if($afterTable === null) {
 					continue;
 				}
+
 				$changeList[] = new SchemaChange(
 					SchemaChangeType::CREATE_TABLE,
 					$tableName,
@@ -24,6 +25,7 @@ class SchemaDiffer {
 				);
 				continue;
 			}
+
 			if($afterTable === null) {
 				$changeList[] = new SchemaChange(
 					SchemaChangeType::DROP_TABLE,
@@ -32,11 +34,13 @@ class SchemaDiffer {
 				);
 				continue;
 			}
+
 			array_push(
 				$changeList,
 				...$this->fieldChangeList($beforeTable, $afterTable),
 			);
 		}
+
 		return new SchemaDiff($changeList);
 	}
 
@@ -73,6 +77,7 @@ class SchemaDiffer {
 				);
 			}
 		}
+
 		return $changeList;
 	}
 

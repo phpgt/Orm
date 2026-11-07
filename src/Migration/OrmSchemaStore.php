@@ -11,14 +11,14 @@ use GT\Orm\Migration\Exception\InvalidSchemaSnapshotException;
 use GT\Orm\Migration\Exception\StaleMigrationPlanException;
 use PDO;
 
-class OrmSchemaStore {
+readonly class OrmSchemaStore {
 	/** @var Closure():DateTimeInterface */
 	private Closure $clock;
 
 	/** @param null|Closure():DateTimeInterface $clock */
 	public function __construct(
-		private readonly Database $database,
-		private readonly SchemaSerializer $serializer = new SchemaSerializer(),
+		private Database $database,
+		private SchemaSerializer $serializer = new SchemaSerializer(),
 		?Closure $clock = null,
 	) {
 		$this->clock = $clock === null
@@ -42,6 +42,7 @@ class OrmSchemaStore {
 		if(!$this->hasTable()) {
 			return null;
 		}
+
 		$row = $this->database->executeSql(<<<SQL
 			select `migratedAt`, `schemaHash`, `previousHash`, `schema`
 			from `_orm`
@@ -85,6 +86,7 @@ class OrmSchemaStore {
 		if($driverName === "mysql") {
 			return $row !== null;
 		}
+
 		return ($row?->getInt("count") ?? 0) > 0;
 	}
 
@@ -99,6 +101,7 @@ class OrmSchemaStore {
 				"ORM schema history has changed before it could be recorded",
 			);
 		}
+
 		$migratedAt = DateTimeImmutable::createFromInterface(($this->clock)())
 			->setTimezone(new DateTimeZone("UTC"))
 			->format("Y-m-d\\TH:i:s.u\\Z");
@@ -107,6 +110,7 @@ class OrmSchemaStore {
 				->modify("+1 microsecond")
 				->format("Y-m-d\\TH:i:s.u\\Z");
 		}
+
 		$schemaHash = $this->serializer->hash($schema);
 		$snapshot = $this->serializer->serialize($schema);
 		$migrationId = "$migratedAt-$schemaHash";
@@ -134,6 +138,7 @@ class OrmSchemaStore {
 				"ORM schema history has already been established",
 			);
 		}
+
 		return $this->append($schema);
 	}
 

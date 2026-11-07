@@ -1,5 +1,5 @@
 <?php
-namespace GT\Orm\Test\Cli;
+namespace GT\Orm\Test\Integration\Cli;
 
 use Gt\Cli\Argument\ArgumentValueList;
 use Gt\Cli\Stream;
@@ -10,6 +10,7 @@ use GT\Orm\Test\TestProject\Migration\Version1\Student as StudentV1;
 use PHPUnit\Framework\TestCase;
 
 class MigrateCommandTest extends TestCase {
+	private MigrateCommand $sut;
 	private string $projectRoot;
 	private string $databasePath;
 	private string $previousDirectory;
@@ -20,22 +21,29 @@ class MigrateCommandTest extends TestCase {
 		$this->databasePath = $this->projectRoot . "/database.sqlite";
 		$this->previousDirectory = getcwd() ?: __DIR__;
 		chdir($this->projectRoot);
+		$this->sut = new MigrateCommand();
 	}
 
 	protected function tearDown():void {
 		chdir($this->previousDirectory);
+		foreach(glob($this->projectRoot . "/*") as $path) {
+			if(is_file($path)) {
+				unlink($path);
+			}
+		}
+		rmdir($this->projectRoot);
 	}
 
-	public function testNoEntityDirectoryIsSuccessfulWithoutOpeningDatabase():void {
+	public function testRun_NoEntityDirectoryIsSuccessfulWithoutOpeningDatabase():void {
 		$this->writeConfig($this->projectRoot . "/missing");
 
-		$status = (new MigrateCommand())->run(new ArgumentValueList());
+		$status = $this->sut->run(new ArgumentValueList());
 
 		self::assertSame(0, $status);
 		self::assertFileDoesNotExist($this->databasePath);
 	}
 
-	public function testMigratesEntitiesAndThenReportsNoChanges():void {
+	public function testRun_MigratesEntitiesAndThenReportsNoChanges():void {
 		$this->writeConfig($this->fixtureDirectory("Version1"));
 		$first = $this->runCommand();
 		$second = $this->runCommand();
@@ -48,7 +56,7 @@ class MigrateCommandTest extends TestCase {
 		self::assertSame(1, $this->historyCount());
 	}
 
-	public function testPlanDoesNotCreateAnEntityTableOrHistoryRecord():void {
+	public function testRun_PlanDoesNotCreateAnEntityTableOrHistoryRecord():void {
 		$this->writeConfig($this->fixtureDirectory("Version1"));
 		$arguments = new ArgumentValueList();
 		$arguments->set("orm-plan");
@@ -61,7 +69,7 @@ class MigrateCommandTest extends TestCase {
 		self::assertFalse($this->tableExists("_orm"));
 	}
 
-	public function testUnsafeChangeReturnsDistinctFailureAndPreservesHistory():void {
+	public function testRun_UnsafeChangeReturnsDistinctFailureAndPreservesHistory():void {
 		$this->writeConfig($this->fixtureDirectory("Version2"));
 		self::assertSame(0, $this->runCommand()["status"]);
 		$this->writeConfig($this->fixtureDirectory("RequiredEmail"));
@@ -73,7 +81,7 @@ class MigrateCommandTest extends TestCase {
 		self::assertSame(1, $this->historyCount());
 	}
 
-	public function testBaselineRecordsExistingEntitySchema():void {
+	public function testRun_BaselineRecordsExistingEntitySchema():void {
 		$this->writeConfig($this->fixtureDirectory("Version1"));
 		$database = $this->database();
 		$database->executeSql(<<<SQL
@@ -93,7 +101,7 @@ class MigrateCommandTest extends TestCase {
 		self::assertSame(1, $this->historyCount());
 	}
 
-	public function testBaselineAndPlanCannotBeCombined():void {
+	public function testRun_BaselineAndPlanCannotBeCombined():void {
 		$this->writeConfig($this->fixtureDirectory("Version1"));
 		$arguments = new ArgumentValueList();
 		$arguments->set("orm-baseline");
@@ -107,7 +115,7 @@ class MigrateCommandTest extends TestCase {
 	}
 
 	private function fixtureDirectory(string $version):string {
-		return dirname(__DIR__) . "/TestProject/Migration/$version";
+		return dirname(__DIR__, 2) . "/phpunit/TestProject/Migration/$version";
 	}
 
 	private function writeConfig(string $entityDirectory):void {
@@ -130,9 +138,8 @@ class MigrateCommandTest extends TestCase {
 		self::assertIsString($out);
 		self::assertIsString($error);
 		self::assertIsString($in);
-		$command = new MigrateCommand();
-		$command->setStream(new Stream($in, $out, $error));
-		$status = $command->run($arguments ?? new ArgumentValueList());
+		$this->sut->setStream(new Stream($in, $out, $error));
+		$status = $this->sut->run($arguments ?? new ArgumentValueList());
 
 		return [
 			"status" => $status,

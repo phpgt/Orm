@@ -18,6 +18,7 @@ readonly class SchemaChange {
 		if($field === null) {
 			throw new LogicException("Schema change does not describe a field");
 		}
+
 		return $field->getName();
 	}
 
@@ -36,6 +37,7 @@ readonly class SchemaChange {
 		if($field === null) {
 			throw new LogicException("Added field change has no resulting field");
 		}
+
 		return $field->isNullable() || $field->hasDefaultValue()
 			? SchemaChangeSafety::SAFE
 			: SchemaChangeSafety::REQUIRES_DATA;
@@ -47,15 +49,19 @@ readonly class SchemaChange {
 		if($before === null || $after === null) {
 			throw new LogicException("Altered field change is incomplete");
 		}
+
 		if($this->primaryKeyStatusChanged()) {
 			return SchemaChangeSafety::DESTRUCTIVE;
 		}
+
 		if($before->equalsExceptAutoIncrement($after)) {
 			return SchemaChangeSafety::SAFE;
 		}
+
 		if($before->isNullable() && !$after->isNullable()) {
 			return SchemaChangeSafety::REQUIRES_DATA;
 		}
+
 		return SchemaChangeSafety::DESTRUCTIVE;
 	}
 
@@ -65,6 +71,7 @@ readonly class SchemaChange {
 		if($beforeTable === null || $afterTable === null) {
 			return false;
 		}
+
 		$fieldName = $this->fieldName();
 		return ($beforeTable->getPrimaryKey()?->getName() === $fieldName)
 			!== ($afterTable->getPrimaryKey()?->getName() === $fieldName);

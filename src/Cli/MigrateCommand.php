@@ -35,16 +35,19 @@ class MigrateCommand extends Command {
 		if($arguments?->contains("no-orm")) {
 			return 0;
 		}
+
 		if($arguments?->contains("orm-baseline")
 		&& $arguments->contains("orm-plan")) {
 			throw new InvalidArgumentException(
 				"--orm-baseline and --orm-plan cannot be used together",
 			);
 		}
+
 		$projectRoot = getcwd();
 		if($projectRoot === false) {
 			throw new RuntimeException("Unable to determine the project directory");
 		}
+
 		$config = new ProjectConfiguration($projectRoot);
 		if(!$config->isEnabled()) {
 			return 0;
@@ -64,6 +67,7 @@ class MigrateCommand extends Command {
 			$this->output("ORM migrations: current Entity schema recorded as the baseline.");
 			return 0;
 		}
+
 		return $this->executePlan($migrator, $arguments, ...$entityList);
 	}
 
@@ -78,6 +82,7 @@ class MigrateCommand extends Command {
 		if($plan->isEmpty()) {
 			return 0;
 		}
+
 		if(!$plan->isExecutable()) {
 			$this->output(
 				"ORM migration was not applied because it requires explicit data handling.",
@@ -85,6 +90,7 @@ class MigrateCommand extends Command {
 			);
 			return 2;
 		}
+
 		if($arguments?->contains("orm-plan")) {
 			$this->output("ORM migrations: plan only; no changes were applied.");
 			return 0;
@@ -128,6 +134,7 @@ class MigrateCommand extends Command {
 			$this->output("ORM migrations: schema is up to date.");
 			return;
 		}
+
 		$this->output("ORM migrations:");
 		foreach($plan->diff->getChangeList() as $change) {
 			$this->output("  - " . $this->describeChange($change));
@@ -140,6 +147,7 @@ class MigrateCommand extends Command {
 		if($change->beforeField !== null || $change->afterField !== null) {
 			$description .= "." . $change->fieldName();
 		}
+
 		return $description . " [" . strtolower($change->safety()->name) . "]";
 	}
 }

@@ -9,7 +9,7 @@ use GT\Orm\Migration\SchemaTable;
 use PHPUnit\Framework\TestCase;
 
 class SchemaSerializerTest extends TestCase {
-	public function testRoundTrip():void {
+	public function testSerialize_roundTrip():void {
 		$schema = new Schema($this->studentTable());
 		$sut = new SchemaSerializer();
 
@@ -19,7 +19,7 @@ class SchemaSerializerTest extends TestCase {
 		self::assertSame($sut->hash($schema), $sut->hash($copy));
 	}
 
-	public function testCanonicalOrder():void {
+	public function testSerialize_canonicalOrder():void {
 		$student = $this->studentTable();
 		$lesson = $this->table("Lesson", "title");
 		$sut = new SchemaSerializer();
@@ -30,7 +30,7 @@ class SchemaSerializerTest extends TestCase {
 		);
 	}
 
-	public function testMissingDefaultAndExplicitNullAreDifferent():void {
+	public function testHash_distinguishesMissingAndNullDefaults():void {
 		$withoutDefault = $this->table("Student", "email");
 		$withDefault = $this->table("Student", "email");
 		$withDefault->getField("email")?->setDefaultValue(null);
@@ -43,17 +43,20 @@ class SchemaSerializerTest extends TestCase {
 	}
 
 	public function testDeserialize_invalidJson():void {
+		$sut = new SchemaSerializer();
 		$this->expectException(InvalidSchemaSnapshotException::class);
-		(new SchemaSerializer())->deserialize("not json");
+		$sut->deserialize("not json");
 	}
 
 	public function testDeserialize_unknownFormat():void {
+		$sut = new SchemaSerializer();
 		$this->expectException(InvalidSchemaSnapshotException::class);
 		$this->expectExceptionMessage("Unsupported schema snapshot format 2");
-		(new SchemaSerializer())->deserialize('{"formatVersion":2,"tables":[]}');
+		$sut->deserialize('{"formatVersion":2,"tables":[]}');
 	}
 
-	public function testRoundTripPreservesEveryFieldCharacteristic():void {
+	public function testSerialize_preservesFieldCharacteristics():void {
+		$sut = new SchemaSerializer();
 		$table = new SchemaTable("Course");
 		$field = new SchemaField("teacherId");
 		$field->setType("string");
@@ -63,8 +66,8 @@ class SchemaSerializerTest extends TestCase {
 		$field->setForeignKeyReference("Teacher", "id");
 		$table->addField($field);
 
-		$copy = (new SchemaSerializer())->deserialize(
-			(new SchemaSerializer())->serialize(new Schema($table)),
+		$copy = $sut->deserialize(
+			$sut->serialize(new Schema($table)),
 		)->getTable("Course")?->getField("teacherId");
 
 		self::assertNotNull($copy);

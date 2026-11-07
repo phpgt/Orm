@@ -1,5 +1,5 @@
 <?php
-namespace GT\Orm\Test\Migration;
+namespace GT\Orm\Test\Integration\Migration;
 
 use GT\Database\Connection\Settings;
 use GT\Database\Database;
@@ -22,7 +22,6 @@ use PHPUnit\Framework\TestCase;
 
 class OrmMigratorTest extends TestCase {
 	private Database $database;
-	private OrmMigrator $migrator;
 
 	protected function setUp():void {
 		$this->database = new Database(new Settings(
@@ -30,30 +29,32 @@ class OrmMigratorTest extends TestCase {
 			Settings::DRIVER_SQLITE,
 			Settings::SCHEMA_IN_MEMORY,
 		));
-		$this->migrator = new OrmMigrator($this->database);
 	}
 
-	public function testInitialMigrationAndRepeatIsNoOp():void {
-		$plan = $this->migrator->plan(StudentV1::class);
+	public function testApply_initialMigrationAndRepeat():void {
+		$sut = new OrmMigrator($this->database);
+		$plan = $sut->plan(StudentV1::class);
 		self::assertFalse($plan->isEmpty());
 		self::assertTrue($plan->isExecutable());
 		self::assertFalse($this->tableExists("_orm"));
-		self::assertSame(1, $this->migrator->apply($plan));
+		self::assertSame(1, $sut->apply($plan));
 		self::assertSame(1, $this->historyCount());
 
-		$repeat = $this->migrator->plan(StudentV1::class);
+		$repeat = $sut->plan(StudentV1::class);
 		self::assertTrue($repeat->isEmpty());
-		self::assertSame(0, $this->migrator->apply($repeat));
+		self::assertSame(0, $sut->apply($repeat));
 		self::assertSame(1, $this->historyCount());
 	}
 
-	public function testMigratePlansAndAppliesInOneCall():void {
-		self::assertSame(1, $this->migrator->migrate(StudentV1::class));
-		self::assertSame(0, $this->migrator->migrate(StudentV1::class));
+	public function testMigrate_plansAndApplies():void {
+		$sut = new OrmMigrator($this->database);
+		self::assertSame(1, $sut->migrate(StudentV1::class));
+		self::assertSame(0, $sut->migrate(StudentV1::class));
 		self::assertSame(1, $this->historyCount());
 	}
 
-	public function testBaselineAdoptsExistingSchemaWithoutRecreatingIt():void {
+	public function testBaseline_preservesExistingData():void {
+		$sut = new OrmMigrator($this->database);
 		$table = (new SchemaGenerator())->generate(StudentV1::class);
 		$this->database->executeSql((new SchemaQuerySQLite($table))->generateSql());
 		$this->database->executeSql(<<<SQL
@@ -61,8 +62,8 @@ class OrmMigratorTest extends TestCase {
 			values (7, 'Ada', '1815-12-10 00:00:00.000000')
 		SQL);
 
-		$this->migrator->baseline(StudentV1::class);
-		$this->migrator->migrate(StudentV2::class);
+		$sut->baseline(StudentV1::class);
+		$sut->migrate(StudentV2::class);
 
 		$row = $this->database->executeSql(
 			"select `id`, `name` from `Student`",
@@ -73,24 +74,26 @@ class OrmMigratorTest extends TestCase {
 		self::assertSame(2, $this->historyCount());
 	}
 
-	public function testBaselineCannotReplaceExistingHistory():void {
-		$this->migrator->baseline(StudentV1::class);
+	public function testBaseline_rejectsExistingHistory():void {
+		$sut = new OrmMigrator($this->database);
+		$sut->baseline(StudentV1::class);
 
 		$this->expectException(ExistingSchemaHistoryException::class);
-		$this->migrator->baseline(StudentV1::class);
+		$sut->baseline(StudentV1::class);
 	}
 
-	public function testAutoIncrementMigrationPreservesRows():void {
-		$this->migrator->apply($this->migrator->plan(StudentV1::class));
+	public function testApply_autoIncrementPreservesRows():void {
+		$sut = new OrmMigrator($this->database);
+		$sut->apply($sut->plan(StudentV1::class));
 		$this->database->executeSql(<<<SQL
 			insert into `Student` (`id`, `name`, `dob`) values
 				(4, 'Ada', '1815-12-10 00:00:00.000000'),
 				(9, 'Grace', '1906-12-09 00:00:00.000000')
 		SQL);
 
-		$plan = $this->migrator->plan(StudentV2::class);
+		$plan = $sut->plan(StudentV2::class);
 		self::assertTrue($plan->isExecutable());
-		$this->migrator->apply($plan);
+		$sut->apply($plan);
 		$this->database->executeSql(
 			"insert into `Student` (`name`, `dob`) values ('Alan', '1912-06-23 00:00:00.000000')",
 		);
@@ -105,13 +108,14 @@ class OrmMigratorTest extends TestCase {
 		], $rowList);
 	}
 
-	public function testAddNullableFieldPreservesRows():void {
-		$this->migrator->apply($this->migrator->plan(StudentV2::class));
+	public function testApply_nullableFieldPreservesRows():void {
+		$sut = new OrmMigrator($this->database);
+		$sut->apply($sut->plan(StudentV2::class));
 		$this->database->executeSql(
 			"insert into `Student` (`name`, `dob`) values ('Ada', '1815-12-10 00:00:00.000000')",
 		);
 
-		$this->migrator->apply($this->migrator->plan(StudentV3::class));
+		$sut->apply($sut->plan(StudentV3::class));
 
 		$row = $this->database->executeSql(
 			"select `name`, `email` from `Student`",
@@ -121,24 +125,26 @@ class OrmMigratorTest extends TestCase {
 		self::assertNull($row->getString("email"));
 	}
 
-	public function testRequiredFieldWithoutDefaultIsNotExecutable():void {
-		$this->migrator->apply($this->migrator->plan(StudentV2::class));
-		$plan = $this->migrator->plan(RequiredEmailStudent::class);
+	public function testApply_rejectsRequiredFieldWithoutDefault():void {
+		$sut = new OrmMigrator($this->database);
+		$sut->apply($sut->plan(StudentV2::class));
+		$plan = $sut->plan(RequiredEmailStudent::class);
 		self::assertFalse($plan->isExecutable());
 
 		$this->expectException(UnsafeMigrationException::class);
-		$this->migrator->apply($plan);
+		$sut->apply($plan);
 	}
 
-	public function testRequiredFieldWithDefaultBackfillsExistingRows():void {
-		$this->migrator->apply($this->migrator->plan(StudentV2::class));
+	public function testApply_requiredFieldBackfillsRows():void {
+		$sut = new OrmMigrator($this->database);
+		$sut->apply($sut->plan(StudentV2::class));
 		$this->database->executeSql(
 			"insert into `Student` (`name`, `dob`) values ('Ada', '1815-12-10 00:00:00.000000')",
 		);
 
-		$plan = $this->migrator->plan(DefaultEmailStudent::class);
+		$plan = $sut->plan(DefaultEmailStudent::class);
 		self::assertTrue($plan->isExecutable());
-		$this->migrator->apply($plan);
+		$sut->apply($plan);
 
 		$row = $this->database->executeSql(
 			"select `email` from `Student`",
@@ -147,16 +153,17 @@ class OrmMigratorTest extends TestCase {
 		self::assertSame("unknown@example.invalid", $row->getString("email"));
 	}
 
-	public function testStalePlanIsRejectedBeforeExecutingSql():void {
-		$first = $this->migrator->plan(StudentV1::class);
-		$stale = $this->migrator->plan(StudentV1::class);
-		$this->migrator->apply($first);
+	public function testApply_rejectsStalePlan():void {
+		$sut = new OrmMigrator($this->database);
+		$first = $sut->plan(StudentV1::class);
+		$stale = $sut->plan(StudentV1::class);
+		$sut->apply($first);
 
 		$this->expectException(StaleMigrationPlanException::class);
-		$this->migrator->apply($stale);
+		$sut->apply($stale);
 	}
 
-	public function testFailedSqlDoesNotRecordSchema():void {
+	public function testApply_failedSqlDoesNotRecordSchema():void {
 		$sqlGenerator = new class implements SchemaDiffSql {
 			public function generateSqlList(SchemaDiff $diff):array {
 				return [
@@ -165,14 +172,14 @@ class OrmMigratorTest extends TestCase {
 				];
 			}
 		};
-		$migrator = new OrmMigrator(
+		$sut = new OrmMigrator(
 			$this->database,
 			sqlGenerator: $sqlGenerator,
 		);
-		$plan = $migrator->plan(StudentV1::class);
+		$plan = $sut->plan(StudentV1::class);
 
 		try {
-			$migrator->apply($plan);
+			$sut->apply($plan);
 			self::fail("Invalid migration SQL should fail");
 		}
 		catch(StatementExecutionException|StatementPreparationException) {

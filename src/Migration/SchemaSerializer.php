@@ -37,6 +37,7 @@ class SchemaSerializer {
 				previous: $exception,
 			);
 		}
+
 		if(!is_array($data)) {
 			throw new InvalidSchemaSnapshotException("Schema snapshot must be an object");
 		}
@@ -48,6 +49,7 @@ class SchemaSerializer {
 				"Unsupported schema snapshot format $version",
 			);
 		}
+
 		$tableDataList = $data["tables"] ?? null;
 		if(!is_array($tableDataList)) {
 			throw new InvalidSchemaSnapshotException("Schema snapshot tables must be an array");
@@ -58,8 +60,10 @@ class SchemaSerializer {
 			if(!is_array($tableData)) {
 				throw new InvalidSchemaSnapshotException("Schema table must be an object");
 			}
+
 			$tableList[] = $this->tableFromData($tableData);
 		}
+
 		return new Schema(...$tableList);
 	}
 
@@ -121,6 +125,7 @@ class SchemaSerializer {
 			if(!is_array($fieldData)) {
 				throw new InvalidSchemaSnapshotException("Schema field must be an object");
 			}
+
 			$table->addField($this->fieldFromData($fieldData));
 		}
 
@@ -129,14 +134,17 @@ class SchemaSerializer {
 			if(!is_string($primaryKeyName)) {
 				throw new InvalidSchemaSnapshotException("Schema primary key must be a string or null");
 			}
+
 			$primaryKey = $table->getField($primaryKeyName);
 			if($primaryKey === null) {
 				throw new InvalidSchemaSnapshotException(
 					"Schema table $name primary key $primaryKeyName does not exist",
 				);
 			}
+
 			$table->setPrimaryKey($primaryKey);
 		}
+
 		return $table;
 	}
 
@@ -156,6 +164,7 @@ class SchemaSerializer {
 				&& $defaultValue !== null) {
 				throw new InvalidSchemaSnapshotException("Schema default value is invalid");
 			}
+
 			$field->setDefaultValue($defaultValue);
 		}
 
@@ -164,11 +173,13 @@ class SchemaSerializer {
 			if(!is_array($foreignKey)) {
 				throw new InvalidSchemaSnapshotException("Schema foreign key must be an object or null");
 			}
+
 			$field->setForeignKeyReference(
 				$this->stringValue($foreignKey, "table"),
 				$this->stringValue($foreignKey, "field"),
 			);
 		}
+
 		return $field;
 	}
 
@@ -178,6 +189,7 @@ class SchemaSerializer {
 		if(!is_string($value)) {
 			throw new InvalidSchemaSnapshotException("Schema $key must be a string");
 		}
+
 		return $value;
 	}
 
@@ -187,6 +199,7 @@ class SchemaSerializer {
 		if(!is_bool($value)) {
 			throw new InvalidSchemaSnapshotException("Schema $key must be a boolean");
 		}
+
 		return $value;
 	}
 }

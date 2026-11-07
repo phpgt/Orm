@@ -1,5 +1,5 @@
 <?php
-namespace GT\Orm\Test\Cli;
+namespace GT\Orm\Test\Integration\Cli;
 
 use Gt\Cli\Argument\ArgumentValueList;
 use GT\Orm\Cli\ProjectConfiguration;
@@ -13,33 +13,40 @@ class ProjectConfigurationTest extends TestCase {
 		mkdir($this->projectRoot, recursive: true);
 	}
 
-	public function testDefaultsAllowAProjectWithoutConfiguration():void {
-		$config = new ProjectConfiguration($this->projectRoot);
+	protected function tearDown():void {
+		foreach(glob($this->projectRoot . "/*") as $path) {
+			unlink($path);
+		}
+		rmdir($this->projectRoot);
+	}
 
-		self::assertTrue($config->isEnabled());
+	public function testConstruct_allowsProjectWithoutConfiguration():void {
+		$sut = new ProjectConfiguration($this->projectRoot);
+
+		self::assertTrue($sut->isEnabled());
 		self::assertSame(
 			$this->projectRoot . "/class",
-			$config->getEntityDirectory(),
+			$sut->getEntityDirectory(),
 		);
 	}
 
-	public function testEntityPathAndDisabledStateComeFromConfiguration():void {
+	public function testConstruct_readsEntityPathAndDisabledState():void {
 		file_put_contents($this->projectRoot . "/config.ini", <<<INI
 			[orm]
 			migrate=false
 			entity_path=model
 			INI);
 
-		$config = new ProjectConfiguration($this->projectRoot);
+		$sut = new ProjectConfiguration($this->projectRoot);
 
-		self::assertFalse($config->isEnabled());
+		self::assertFalse($sut->isEnabled());
 		self::assertSame(
 			$this->projectRoot . "/model",
-			$config->getEntityDirectory(),
+			$sut->getEntityDirectory(),
 		);
 	}
 
-	public function testCommandArgumentsOverrideDatabaseConfiguration():void {
+	public function testCreateSettings_commandArgumentsOverrideConfiguration():void {
 		file_put_contents($this->projectRoot . "/config.ini", <<<INI
 			[database]
 			driver=mysql
@@ -51,8 +58,8 @@ class ProjectConfigurationTest extends TestCase {
 		$arguments->set("database", ":memory:");
 		$arguments->set("base-directory", "sql");
 
-		$settings = (new ProjectConfiguration($this->projectRoot))
-			->createSettings($arguments);
+		$sut = new ProjectConfiguration($this->projectRoot);
+		$settings = $sut->createSettings($arguments);
 
 		self::assertSame("sqlite", $settings->getDriver());
 		self::assertSame(":memory:", $settings->getSchema());

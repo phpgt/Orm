@@ -1,7 +1,6 @@
 <?php
 namespace GT\Orm\Test\Migration\Query;
 
-use GT\Orm\Migration\Query\SchemaDiffQueryMySQL;
 use GT\Orm\Migration\Query\SchemaDiffQuerySQLite;
 use GT\Orm\Migration\Schema;
 use GT\Orm\Migration\SchemaDiffer;
@@ -9,12 +8,13 @@ use GT\Orm\Migration\SchemaField;
 use GT\Orm\Migration\SchemaTable;
 use GT\Orm\Test\SQLTestCase;
 
-class SchemaDiffQueryTest extends SQLTestCase {
-	public function testSQLite_createTable():void {
+class SchemaDiffQuerySQLiteTest extends SQLTestCase {
+	public function testGenerateSqlList_createTable():void {
+		$sut = new SchemaDiffQuerySQLite();
 		$table = $this->studentTable(false);
 		$diff = (new SchemaDiffer())->diff(new Schema(), new Schema($table));
 
-		$sqlList = (new SchemaDiffQuerySQLite())->generateSqlList($diff);
+		$sqlList = $sut->generateSqlList($diff);
 
 		self::assertCount(1, $sqlList);
 		$this->assertSameSQL(<<<SQL
@@ -25,7 +25,8 @@ class SchemaDiffQueryTest extends SQLTestCase {
 		SQL, $sqlList[0]);
 	}
 
-	public function testSQLite_addNullableField():void {
+	public function testGenerateSqlList_addNullableField():void {
+		$sut = new SchemaDiffQuerySQLite();
 		$before = $this->studentTable(true);
 		$after = $this->studentTable(true);
 		$email = new SchemaField("email");
@@ -36,16 +37,17 @@ class SchemaDiffQueryTest extends SQLTestCase {
 
 		self::assertSame(
 			["alter table `Student` add column `email` text null"],
-			(new SchemaDiffQuerySQLite())->generateSqlList($diff),
+			$sut->generateSqlList($diff),
 		);
 	}
 
-	public function testSQLite_autoIncrementRebuild():void {
+	public function testGenerateSqlList_autoIncrementRebuild():void {
+		$sut = new SchemaDiffQuerySQLite();
 		$before = $this->studentTable(false);
 		$after = $this->studentTable(true);
 		$diff = (new SchemaDiffer())->diff(new Schema($before), new Schema($after));
 
-		$sqlList = (new SchemaDiffQuerySQLite())->generateSqlList($diff);
+		$sqlList = $sut->generateSqlList($diff);
 
 		self::assertCount(4, $sqlList);
 		$this->assertSameSQL(<<<SQL
@@ -62,17 +64,6 @@ class SchemaDiffQueryTest extends SQLTestCase {
 		self::assertSame(
 			"alter table `_orm_rebuild_Student` rename to `Student`",
 			$sqlList[3],
-		);
-	}
-
-	public function testMySQL_autoIncrementAlter():void {
-		$before = $this->studentTable(false);
-		$after = $this->studentTable(true);
-		$diff = (new SchemaDiffer())->diff(new Schema($before), new Schema($after));
-
-		self::assertSame(
-			["alter table `Student` modify column `id` int not null auto_increment"],
-			(new SchemaDiffQueryMySQL())->generateSqlList($diff),
 		);
 	}
 

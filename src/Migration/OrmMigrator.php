@@ -7,7 +7,7 @@ use GT\Orm\Migration\Query\SchemaDiffSql;
 use GT\Orm\Migration\Query\SchemaDiffSqlFactory;
 use GT\Orm\Persistence\TransactionRunner;
 
-class OrmMigrator {
+readonly class OrmMigrator {
 	private SchemaGenerator $schemaGenerator;
 	private OrmSchemaStore $schemaStore;
 	private SchemaDiffer $schemaDiffer;
@@ -15,7 +15,7 @@ class OrmMigrator {
 	private TransactionRunner $transactionRunner;
 
 	public function __construct(
-		private readonly Database $database,
+		private Database $database,
 		?SchemaGenerator $schemaGenerator = null,
 		?OrmSchemaStore $schemaStore = null,
 		?SchemaDiffer $schemaDiffer = null,
@@ -51,6 +51,7 @@ class OrmMigrator {
 		if($plan->isEmpty()) {
 			return 0;
 		}
+
 		if(!$plan->isExecutable()) {
 			throw new UnsafeMigrationException(
 				"ORM migration contains changes that require explicit data handling",
@@ -63,6 +64,7 @@ class OrmMigrator {
 			foreach($plan->getSqlList() as $sql) {
 				$this->database->executeSql($sql);
 			}
+
 			$this->schemaStore->append($plan->schema, $plan->previousHash);
 			return count($plan->getSqlList());
 		});
