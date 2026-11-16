@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "greenlion/php-sql-parser",
-            "version": "v4.7.0",
+            "version": "v5.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/greenlion/PHP-SQL-Parser.git",
-                "reference": "0cd49149efc5868db9c32d1a09558ea516892586"
+                "reference": "7a4701b71f7786e8518a9412f3c552ae4550d314"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/greenlion/PHP-SQL-Parser/zipball/0cd49149efc5868db9c32d1a09558ea516892586",
-                "reference": "0cd49149efc5868db9c32d1a09558ea516892586",
+                "url": "https://api.github.com/repos/greenlion/PHP-SQL-Parser/zipball/7a4701b71f7786e8518a9412f3c552ae4550d314",
+                "reference": "7a4701b71f7786e8518a9412f3c552ae4550d314",
                 "shasum": ""
             },
             "require": {
@@ -26,7 +26,7 @@
             "require-dev": {
                 "analog/analog": "^1.0.6",
                 "phpunit/phpunit": "^9.5.13",
-                "squizlabs/php_codesniffer": "^2.8.1"
+                "squizlabs/php_codesniffer": "^3.13.6"
             },
             "type": "library",
             "autoload": {
@@ -64,7 +64,7 @@
                 "issues": "https://github.com/greenlion/PHP-SQL-Parser/issues",
                 "source": "https://github.com/greenlion/PHP-SQL-Parser"
             },
-            "time": "2024-12-02T12:14:07+00:00"
+            "time": "2026-09-19T15:22:58+00:00"
         },
         {
             "name": "magicalex/write-ini-file",
@@ -119,34 +119,34 @@
         },
         {
             "name": "phpgt/cli",
-            "version": "v1.4.0",
+            "version": "v2.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpgt/Cli.git",
-                "reference": "84a1b720efe836624313061ac42e81dd7d9c2948"
+                "reference": "89981e4d18a2d28296037e408977cd7d1e84c6e7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpgt/Cli/zipball/84a1b720efe836624313061ac42e81dd7d9c2948",
-                "reference": "84a1b720efe836624313061ac42e81dd7d9c2948",
+                "url": "https://api.github.com/repos/phpgt/Cli/zipball/89981e4d18a2d28296037e408977cd7d1e84c6e7",
+                "reference": "89981e4d18a2d28296037e408977cd7d1e84c6e7",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
                 "ext-readline": "*",
                 "php": ">=8.2",
-                "phpgt/daemon": "^1.1.3"
+                "phpgt/daemon": "^1.1"
             },
             "require-dev": {
                 "phpmd/phpmd": "^2.13",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^10.5",
-                "squizlabs/php_codesniffer": "^3.7"
+                "squizlabs/php_codesniffer": "^4.0"
             },
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "Gt\\Cli\\": "./src"
+                    "GT\\Cli\\": "./src"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -156,7 +156,7 @@
             "authors": [
                 {
                     "name": "Greg Bowler",
-                    "email": "greg.bowler@g105b.com"
+                    "email": "greg@g105b.com"
                 }
             ],
             "description": "Command line interface builder.",
@@ -168,37 +168,37 @@
             ],
             "support": {
                 "issues": "https://github.com/phpgt/Cli/issues",
-                "source": "https://github.com/phpgt/Cli/tree/v1.4.0"
+                "source": "https://github.com/phpgt/Cli/tree/v2.0.1"
             },
             "funding": [
                 {
-                    "url": "https://github.com/sponsors/PhpGt",
+                    "url": "https://github.com/sponsors/phpgt",
                     "type": "github"
                 }
             ],
-            "time": "2026-03-08T23:28:56+00:00"
+            "time": "2026-11-03T18:19:37+00:00"
         },
         {
             "name": "phpgt/config",
-            "version": "v1.3.0",
+            "version": "v1.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpgt/Config.git",
-                "reference": "5d644af3fdc35bc3c648868ae670ea4cd162937a"
+                "reference": "cf62c50c744516a01542ab5643ea54dbf525e908"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpgt/Config/zipball/5d644af3fdc35bc3c648868ae670ea4cd162937a",
-                "reference": "5d644af3fdc35bc3c648868ae670ea4cd162937a",
+                "url": "https://api.github.com/repos/phpgt/Config/zipball/cf62c50c744516a01542ab5643ea54dbf525e908",
+                "reference": "cf62c50c744516a01542ab5643ea54dbf525e908",
                 "shasum": ""
             },
             "require": {
                 "magicalex/write-ini-file": "v1.2.4",
                 "php": ">=8.3",
-                "phpgt/typesafegetter": "^v1.2"
+                "phpgt/typesafegetter": "^1.3"
             },
             "require-dev": {
-                "phpmd/phpmd": "^2.15",
+                "phpmd/phpmd": "^2.15 || ^3.0",
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^12.4",
                 "squizlabs/php_codesniffer": "^4.0"
@@ -226,7 +226,7 @@
             "description": "Manage configuration with ini files and environment variables.",
             "support": {
                 "issues": "https://github.com/phpgt/Config/issues",
-                "source": "https://github.com/phpgt/Config/tree/v1.3.0"
+                "source": "https://github.com/phpgt/Config/tree/v1.3.1"
             },
             "funding": [
                 {
@@ -234,20 +234,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-29T20:06:02+00:00"
+            "time": "2026-11-11T10:42:42+00:00"
         },
         {
             "name": "phpgt/daemon",
-            "version": "v1.1.7",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpgt/Daemon.git",
-                "reference": "b537b1c713e481ec6a97d70143e559829f3c7f4c"
+                "reference": "ef7e953c06005c4d8230780b4e0f028fa01d5b6d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpgt/Daemon/zipball/b537b1c713e481ec6a97d70143e559829f3c7f4c",
-                "reference": "b537b1c713e481ec6a97d70143e559829f3c7f4c",
+                "url": "https://api.github.com/repos/phpgt/Daemon/zipball/ef7e953c06005c4d8230780b4e0f028fa01d5b6d",
+                "reference": "ef7e953c06005c4d8230780b4e0f028fa01d5b6d",
                 "shasum": ""
             },
             "require": {
@@ -255,10 +255,10 @@
                 "php": ">=8.1"
             },
             "require-dev": {
-                "phpmd/phpmd": "^2.13",
-                "phpstan/phpstan": "^v1.10",
+                "phpmd/phpmd": "^3.0",
+                "phpstan/phpstan": "^v2.2",
                 "phpunit/phpunit": "^10.5",
-                "squizlabs/php_codesniffer": "^3.7"
+                "squizlabs/php_codesniffer": "^4.0"
             },
             "type": "library",
             "autoload": {
@@ -271,7 +271,7 @@
             "description": "Background script execution with cross-platform compatible streaming.",
             "support": {
                 "issues": "https://github.com/phpgt/Daemon/issues",
-                "source": "https://github.com/phpgt/Daemon/tree/v1.1.7"
+                "source": "https://github.com/phpgt/Daemon/tree/v1.2.0"
             },
             "funding": [
                 {
@@ -279,35 +279,35 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-10T09:53:00+00:00"
+            "time": "2026-11-11T11:12:43+00:00"
         },
         {
             "name": "phpgt/database",
-            "version": "v1.8.1",
+            "version": "v1.8.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpgt/Database.git",
-                "reference": "edea409878beb7c99ceb06a6a593112bb8b0cd03"
+                "reference": "99ae9d68e24d667b0f32f3883dc1889ec2c04561"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpgt/Database/zipball/edea409878beb7c99ceb06a6a593112bb8b0cd03",
-                "reference": "edea409878beb7c99ceb06a6a593112bb8b0cd03",
+                "url": "https://api.github.com/repos/phpgt/Database/zipball/99ae9d68e24d667b0f32f3883dc1889ec2c04561",
+                "reference": "99ae9d68e24d667b0f32f3883dc1889ec2c04561",
                 "shasum": ""
             },
             "require": {
                 "ext-pdo": "*",
-                "greenlion/php-sql-parser": "^4.6",
-                "php": ">=8.3",
-                "phpgt/cli": "^1.4",
-                "phpgt/config": "^v1.1.0",
-                "phpgt/sqlbuilder": "^1.0.1"
+                "greenlion/php-sql-parser": "^4.6 || ^5.0",
+                "php": ">=8.4",
+                "phpgt/cli": "^2.0",
+                "phpgt/config": "^1.3",
+                "phpgt/sqlbuilder": "^1.1"
             },
             "require-dev": {
                 "ext-sqlite3": "*",
                 "phpmd/phpmd": "^2.13",
-                "phpstan/phpstan": "^v1.10",
-                "phpunit/phpunit": "^10.1",
+                "phpstan/phpstan": "^v1.10 || ^2.0",
+                "phpunit/phpunit": "^10.1 || ^12.0",
                 "squizlabs/php_codesniffer": "^3.7 || ^4.0"
             },
             "bin": [
@@ -341,7 +341,7 @@
             "description": "Database API organisation.",
             "support": {
                 "issues": "https://github.com/phpgt/Database/issues",
-                "source": "https://github.com/phpgt/Database/tree/v1.8.1"
+                "source": "https://github.com/phpgt/Database/tree/v1.8.2"
             },
             "funding": [
                 {
@@ -349,7 +349,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-08-31T14:56:25+00:00"
+            "time": "2026-11-12T12:16:08+00:00"
         },
         {
             "name": "phpgt/sqlbuilder",
